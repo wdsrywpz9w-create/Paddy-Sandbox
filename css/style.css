@@ -1,0 +1,147 @@
+:root {
+  --b: max(40px, min(56px, calc((100vw - 48px) / 8.3)));
+  --gap: min(8px, 1.6vw);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  touch-action: none; overscroll-behavior: none;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  font-family: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif;
+}
+body {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  background: #3a342f center / cover no-repeat;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+}
+body.sky { background: linear-gradient(180deg, #7fd3f2 0%, #5cc4ea 55%, #3fb0dc 100%) !important; }
+#frame {
+  flex: 1; min-height: 0;
+  margin: 4px 4px 8px;
+  padding: 7px;
+  border-radius: 20px;
+  background:
+    repeating-linear-gradient(92deg, rgba(255,255,255,.07) 0 3px, rgba(0,0,0,.05) 3px 9px, rgba(255,255,255,0) 9px 17px),
+    linear-gradient(160deg, #d99a5b, #b8743a 60%, #a5652f);
+  box-shadow: 0 5px 0 #8a5326, 0 10px 18px rgba(0,0,0,.22), inset 0 2px 0 rgba(255,255,255,.35);
+}
+#tray {
+  position: relative; width: 100%; height: 100%;
+  border-radius: 14px; overflow: hidden;
+  background: #4aa3d4;
+}
+#sand { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#shade {
+  position: absolute; inset: 0; pointer-events: none; border-radius: 14px;
+  box-shadow: inset 0 7px 14px rgba(60,30,0,.45), inset 0 -3px 8px rgba(255,255,255,.18),
+              inset 5px 0 10px rgba(60,30,0,.25), inset -5px 0 10px rgba(60,30,0,.25);
+}
+#ui {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 2px 6px calc(8px + env(safe-area-inset-bottom));
+}
+.popup {
+  position: absolute; bottom: calc(100% + 6px); left: 50%; z-index: 4;
+  transform: translateX(-50%) translateY(10px) scale(.9); opacity: 0; pointer-events: none;
+  padding: 9px; border-radius: 999px; background: rgba(255,250,235,.92);
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  transition: transform .2s cubic-bezier(.3,1.5,.5,1), opacity .15s;
+  --b: min(54px, calc((100vw - 90px) / 6.2));
+}
+.popup.open { transform: translateX(-50%); opacity: 1; pointer-events: auto; }
+.popup .btn { box-shadow: 0 3px 0 rgba(0,40,70,.2); }
+#dyes { --b: min(46px, calc((100vw - 96px) / 8.4)); gap: 6px; }
+.row { display: flex; gap: var(--gap); justify-content: center; }
+@media (max-width: 380px) { #tools { flex-wrap: wrap; max-width: calc(4 * var(--b) + 3 * var(--gap) + 8px); row-gap: 8px; } }
+.btn {
+  width: var(--b); height: var(--b); padding: 0;
+  border: none; border-radius: 50%;
+  background: #fffdf6;
+  box-shadow: 0 5px 0 rgba(0,40,70,.25);
+  display: grid; place-items: center;
+  font-size: calc(var(--b) * .52); line-height: 1;
+  transition: transform .18s cubic-bezier(.3,1.6,.5,1), background .2s;
+  touch-action: none;
+}
+.btn canvas { width: 80%; height: 80%; pointer-events: none; }
+.btn.sel {
+  background: #ffe36b;
+  transform: scale(1.14) translateY(-3px);
+  box-shadow: 0 0 0 4px #fff, 0 7px 0 rgba(0,40,70,.25);
+}
+.btn.pop { animation: pop .35s; }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.3) rotate(-8deg); } 100% { transform: scale(1.14) translateY(-3px); } }
+.btn.action.sel { background: #fffdf6; transform: none; box-shadow: 0 5px 0 rgba(0,40,70,.25); }
+#gear {
+  position: fixed; z-index: 5; width: 34px; height: 34px; padding: 0;
+  top: calc(env(safe-area-inset-top) + 1px); right: calc(env(safe-area-inset-right) + 1px);
+  border: none; border-radius: 50%; background: rgba(255,255,255,.55);
+  font-size: 18px; line-height: 1; opacity: .7; touch-action: none;
+}
+#gear::after {
+  content: ""; position: absolute; inset: -3px; border-radius: 50%;
+  border: 3px solid #ffcf3f; clip-path: inset(0 100% 0 0); opacity: 0;
+}
+#gear.holding::after { opacity: 1; animation: hold 1.2s linear forwards; }
+@keyframes hold { to { clip-path: inset(0 0 0 0); } }
+/* The overlay is pinned to the screen edges, so its height is the part of the screen you can
+   actually see (100vh on iPhones includes the area behind the browser bars). The panel is capped
+   to that height and scrolls inside itself; Done stays pinned to its bottom edge. */
+#settings {
+  position: fixed; inset: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(20,50,70,.55);
+  padding: max(10px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
+}
+#settings.hide { display: none; }
+html.settings-open, html.settings-open body { touch-action: auto; } /* let the settings panel scroll on iPhones */
+#settings .panel {
+  position: relative; width: min(360px, 100%); max-height: 100%;
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+  background: #fffaf0; border-radius: 22px; padding: 16px 16px 0;
+  color: #4a3015; box-shadow: 0 12px 30px rgba(0,0,0,.3);
+}
+#settings h2 { margin: 0 44px 12px 0; font-size: 20px; }
+#closeX {
+  position: absolute; top: 10px; right: 10px; width: 38px; height: 38px; border-radius: 50%;
+  border: none; background: #f0e2c8; color: #4a3015; font: inherit; font-size: 18px; font-weight: 800;
+}
+#settings .donebar {
+  position: sticky; bottom: 0; margin: 4px -16px 0; padding: 10px 16px 14px;
+  background: linear-gradient(rgba(255,250,240,0), #fffaf0 30%);
+}
+#settings .opt { margin-bottom: 13px; }
+#settings .opt > span { display: block; font-weight: 700; margin-bottom: 7px; }
+#settings .seg { display: flex; gap: 6px; }
+#settings .seg button {
+  flex: 1; padding: 10px 4px; border-radius: 12px; border: 2px solid #e2c9a0;
+  background: #fff; color: #4a3015; font: inherit; font-weight: 700; font-size: 15px;
+}
+#settings .seg.small { flex-wrap: wrap; }
+#settings .seg.small button { flex: 1 1 28%; }
+#settings .seg button.on { background: #ffe36b; border-color: #e0a92a; }
+#settings .note { font-size: 13px; opacity: .7; margin: -5px 0 12px; line-height: 1.35; }
+#done {
+  width: 100%; padding: 13px; border: none; border-radius: 14px; background: #3aa7d9; color: #fff;
+  font: inherit; font-size: 17px; font-weight: 800;
+}
+
+#start {
+  position: fixed; inset: 0; z-index: 10;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  background: radial-gradient(circle at 50% 40%, #ffe9a8, #f6c66a 60%, #e8a94a);
+  color: #7a4a12; text-align: center;
+  transition: opacity .4s;
+}
+#start.hide { opacity: 0; pointer-events: none; }
+#play {
+  width: 170px; height: 170px; border-radius: 50%; border: none;
+  background: #fff; font-size: 92px; line-height: 1;
+  box-shadow: 0 10px 0 #c8862f, 0 18px 30px rgba(0,0,0,.2);
+  animation: bob 1.6s ease-in-out infinite;
+}
+@keyframes bob { 50% { transform: translateY(-12px) scale(1.04); } }
+#start .hint { font-size: 26px; font-weight: 800; }
+#start .small { font-size: 14px; opacity: .75; max-width: 300px; line-height: 1.4; }

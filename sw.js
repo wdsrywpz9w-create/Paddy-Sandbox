@@ -1,6 +1,32 @@
 // Offline cache so the sandbox works without signal once it has been opened.
-const CACHE = 'sandbox-v11';
-const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'sandbox-v12';
+const FILES = [
+  './',
+  'index.html',
+  'manifest.webmanifest',
+  'icon.svg',
+  'icon-180.png',
+  'icon-192.png',
+  'icon-512.png',
+  'css/style.css',
+  'js/core.js',
+  'js/dig.js',
+  'js/dye.js',
+  'js/fan.js',
+  'js/hose.js',
+  'js/input.js',
+  'js/main.js',
+  'js/motion.js',
+  'js/particles.js',
+  'js/render.js',
+  'js/shovel.js',
+  'js/sound.js',
+  'js/stamps.js',
+  'js/treasure.js',
+  'js/ui.js',
+  'js/water.js',
+  'js/wave.js',
+];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))));
