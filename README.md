@@ -16,7 +16,7 @@ A phone-browser sand tray for toddlers. No install, no ads, no text to read. It 
 
 ### Dinosaur dig 🦖
 
-Five toys are buried under the sand each round: four dinosaurs (T-rex, triceratops, stegosaurus, long-neck, pterodactyl) plus a dino egg or a fossil bone. The sand over them is packed down and shows faint lumps in their shapes. Dig with a finger, blast with the hose, or tilt the sand away. Once most of a toy is showing, it roars (the egg and bone play a chime), does a little happy dance and sparkles. Tap 🌊 to bury a new set.
+Five toys are buried under the sand each round: four dinosaurs (T-rex, triceratops, stegosaurus, long-neck, pterodactyl) plus a dino egg or a fossil bone. The sand over them is packed down and shows faint lumps in their shapes (no lumps on the *Hidden* setting; the dinosaurs can also be switched off in settings). Dig with a finger, blast with the hose, or tilt the sand away. Once most of a toy is showing, it roars (the egg and bone play a chime), does a little happy dance and sparkles. Tap 🌊 to bury a new set.
 
 **Tilt** the phone and the sand slides downhill, piles against the low wall, and shows the blue floor at the high end. **Shake** the phone and the sand loosens and settles flat.
 
