@@ -132,13 +132,17 @@ const P = {
   COH: 4.0,       // extra slope pressed/compacted sand can hold
   WETC: 1.4,      // extra slope wet sand can hold
   k: 0.1,         // flow rate
-  tiltGain: 2.2,  // makes ~20° of tilt enough to start sand sliding
-  iters: 3,       // relaxation passes per frame
+  tiltGain: 2.4,  // makes ~20° of tilt enough to start sand sliding
+  iters: 3,       // physics passes per frame
+  G: 0.13,        // gravity pull on moving sand (cells / pass²)
+  mobile: 3.0,    // thickness of the surface layer that can flow
+  vmax: 0.8,      // top flow speed (cells / pass)
   maxH: 90,
 };
 
 let W = 0, H = 0, N = 0, CELL = 2, cssW = 0, cssH = 0, DPR = 1;
 let h, c, dh, cin, outm, act, firm, wet, thr, img, img32;
+let u, v, pu, pv, qin, sh; // flow velocity, incoming momentum, shadow height
 let FINGER_R = 16, STAMP_R = 60;
 let wetActive = false;
 
@@ -193,6 +197,8 @@ function resize() {
   h = fresh.h; c = fresh.c; firm = fresh.firm; wet = fresh.wet;
   dh = new Float32Array(N); cin = new Float32Array(N); outm = new Float32Array(N);
   thr = new Float32Array(N); act = new Uint8Array(N);
+  u = new Float32Array(N); v = new Float32Array(N); pu = new Float32Array(N); pv = new Float32Array(N);
+  qin = new Float32Array(N); sh = new Float32Array(N);
   small.width = W; small.height = H;
   img = sctx.createImageData(W, H);
   img32 = new Uint32Array(img.data.buffer);
@@ -222,11 +228,11 @@ function relax(tx, ty, agit) {
   const mv = (i, j, d, ti, tj, kk) => {
     let q;
     if (d > ti) {
-      q = (d - ti) * kk; const cap = h_[i] * 0.08; if (q > cap) q = cap;
+      q = (d - ti) * kk; const cap = h_[i] * 0.06; if (q > cap) q = cap;
       if (q < 1e-4) return;
       dh_[i] -= q; dh_[j] += q; outm_[i] += q; cin_[j] += c_[i] * q; flow += q;
     } else if (d < -tj) {
-      q = (-d - tj) * kk; const cap = h_[j] * 0.08; if (q > cap) q = cap;
+      q = (-d - tj) * kk; const cap = h_[j] * 0.06; if (q > cap) q = cap;
       if (q < 1e-4) return;
       dh_[j] -= q; dh_[i] += q; outm_[j] += q; cin_[i] += c_[j] * q; flow += q;
     }
@@ -245,36 +251,55 @@ function relax(tx, ty, agit) {
       }
     }
   }
-  // Bulk sliding: where the total downhill slope (tilt + terrain) beats the
-  // angle of repose, a thin surface sheet of sand slides as a body (upwind advection).
+  // Granular flow with momentum: each column's surface layer has a velocity.
+  // Gravity along the slope (terrain + phone tilt) accelerates it; Coulomb
+  // friction (the angle of repose) brakes it. Sand speeds up, surges, piles
+  // against walls and stops - like a real avalanche.
+  const u_ = u, v_ = v, pu_ = pu, pv_ = pv, qin_ = qin, G = P.G, L = P.mobile, VM = P.vmax;
+  pu_.fill(0); pv_.fill(0); qin_.fill(0);
   for (let y = 0; y < hgt; y++) {
-    const row = y * w, up = y > 0 ? -w : 0, dn = y < hgt - 1 ? w : 0;
+    const row = y * w, up = y > 0 ? -w : 0, dn = y < hgt - 1 ? w : 0, gyk = (up && dn) ? 0.5 : 1;
     for (let x = 0; x < w; x++) {
       const i = row + x, hi = h_[i];
-      if (hi < 0.05) continue;
-      const lf = x > 0 ? -1 : 0, rt = x < Wm ? 1 : 0;
-      const sx = tx - (h_[i + rt] - h_[i + lf]) * 0.5, sy = ty - (h_[i + dn] - h_[i + up]) * 0.5;
-      const t = thr_[i] * 1.05, m2 = sx * sx + sy * sy;
-      if (m2 <= t * t) continue;
-      let v = (Math.sqrt(m2) - t) * 0.35; if (v > 0.3) v = 0.3;
-      const q = (hi < 2.5 ? hi : 2.5) * v;
-      const ax = Math.abs(sx), ay = Math.abs(sy), inv = 1 / (ax + ay);
-      const jx = sx > 0 ? (x < Wm ? i + 1 : -1) : (x > 0 ? i - 1 : -1);
-      const jy = sy > 0 ? (y < hgt - 1 ? i + w : -1) : (y > 0 ? i - w : -1);
-      const qx = jx >= 0 ? q * ax * inv : 0, qy = jy >= 0 ? q * ay * inv : 0, tot = qx + qy;
-      if (tot < 1e-4) continue;
-      if (qx > 0) { dh_[jx] += qx; cin_[jx] += c_[i] * qx; }
-      if (qy > 0) { dh_[jy] += qy; cin_[jy] += c_[i] * qy; }
-      dh_[i] -= tot; outm_[i] += tot; flow += tot;
+      let ui = u_[i], vi = v_[i];
+      if (hi < 0.03) { u_[i] = v_[i] = 0; continue; }
+      const lf = x > 0 ? -1 : 0, rt = x < Wm ? 1 : 0, gxk = (lf && rt) ? 0.5 : 1;
+      const sx = tx - (h_[i + rt] - h_[i + lf]) * gxk, sy = ty - (h_[i + dn] - h_[i + up]) * gyk;
+      const mu = thr_[i];
+      const sp = Math.sqrt(ui * ui + vi * vi);
+      if (sp > 1e-3) {
+        const nu = ui + G * (sx - mu * ui / sp), nv = vi + G * (sy - mu * vi / sp);
+        if (nu * ui + nv * vi <= 0) { ui = 0; vi = 0; } else { ui = nu * 0.99; vi = nv * 0.99; }
+      } else {
+        const sm = Math.sqrt(sx * sx + sy * sy);
+        if (sm > mu * 1.04) { ui = G * (sx - mu * sx / sm); vi = G * (sy - mu * sy / sm); } else { ui = 0; vi = 0; }
+      }
+      if ((x === 0 && ui < 0) || (x === Wm && ui > 0)) ui = 0;
+      if ((y === 0 && vi < 0) || (y === hgt - 1 && vi > 0)) vi = 0;
+      const sa = (ui < 0 ? -ui : ui) + (vi < 0 ? -vi : vi);
+      if (sa > VM) { ui *= VM / sa; vi *= VM / sa; }
+      u_[i] = ui; v_[i] = vi;
+      if (sa < 1e-4) continue;
+      act_[i] = 1;
+      const M = hi * 0.6 < L ? hi * 0.6 : L;
+      const qx = M * (ui < 0 ? -ui : ui), qy = M * (vi < 0 ? -vi : vi);
+      if (qx > 1e-5) { const j = ui > 0 ? i + 1 : i - 1; dh_[j] += qx; cin_[j] += c_[i] * qx; pu_[j] += qx * ui; pv_[j] += qx * vi; qin_[j] += qx; }
+      if (qy > 1e-5) { const j = vi > 0 ? i + w : i - w; dh_[j] += qy; cin_[j] += c_[i] * qy; pu_[j] += qy * ui; pv_[j] += qy * vi; qin_[j] += qy; }
+      dh_[i] -= qx + qy; outm_[i] += qx + qy; flow += qx + qy;
     }
   }
   for (let i = 0; i < n; i++) {
     const o = outm_[i], d = dh_[i];
     if (o === 0 && d === 0) { act_[i] = 0; continue; }
-    const nh = h_[i] + d, inflow = d + o;
-    if (nh > 1e-5) c_[i] = (c_[i] * (h_[i] - o) + cin_[i]) / nh;
+    const h0 = h_[i], nh = h0 + d, inflow = d + o;
+    if (nh > 1e-5) c_[i] = (c_[i] * (h0 - o) + cin_[i]) / nh;
     h_[i] = nh < 0 ? 0 : nh;
-    act_[i] = o > 0.004 ? 1 : 0;
+    act_[i] = (o > 0.004 || u_[i] !== 0 || v_[i] !== 0) ? 1 : 0;
+    const qi = qin_[i];
+    if (qi > 0) { // arriving sand brings its momentum
+      let keep = (h0 * 0.6 < L ? h0 * 0.6 : L) - o; if (keep < 0.05) keep = 0.05;
+      u_[i] = (u_[i] * keep + pu_[i]) / (keep + qi); v_[i] = (v_[i] * keep + pv_[i]) / (keep + qi);
+    }
     if (inflow > 0.02) { const f = inflow * 0.5; c_[i] += ((0.88 + frand() * 0.2) - c_[i]) * (f < 0.35 ? f : 0.35); } // tumbling grains
     if (inflow > 0.003 && firm_[i] > 0) { const f = 1 - inflow * 0.35; firm_[i] *= f > 0 ? f : 0; }
   }
@@ -370,6 +395,8 @@ function updateParticles() {
     if (p.z <= h[i]) {
       const nh = h[i] + p.m;
       if (nh < P.maxH) { c[i] = (c[i] * h[i] + p.c * p.m) / nh; h[i] = nh; }
+      const share = p.m / Math.max(1, Math.min(nh, P.mobile));
+      u[i] += p.vx / P.iters * share; v[i] += p.vy / P.iters * share;
       firm[i] = 0; act[i] = 1;
       parts[n] = parts[parts.length - 1]; parts.pop();
     }
@@ -396,7 +423,7 @@ function plow(px, py, dirx, diry, speed) {
     let target = ref - depth * Math.sqrt(1 - d2 / r2);
     if (target < 0) target = 0;
     if (h[i] > target) { const rem = (h[i] - target) * 0.5; h[i] -= rem; removed += rem; cm += c[i] * rem; }
-    firm[i] = 0; act[i] = 1;
+    firm[i] = 0; act[i] = 1; u[i] = 0; v[i] = 0;
     if (wet[i] > 0) wet[i] *= 0.97;
   }
   if (removed <= 0) return;
@@ -415,6 +442,7 @@ function plow(px, py, dirx, diry, speed) {
   }
   // the rest is bulldozed into a bow-wave ahead of and beside the finger
   const hasDir = dirx * dirx + diry * diry > 0;
+  const push = Math.min(0.45, speed * 0.35); // shoved sand keeps sliding a little
   const wgt = (dx, dy) => {
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d < r * 0.85 || d > R) return 0;
@@ -429,6 +457,7 @@ function plow(px, py, dirx, diry, speed) {
     const w = wgt(x - px, y - py); if (!w) continue;
     const i = y * W + x, q = removed * w / ws, nh = h[i] + q;
     c[i] = (c[i] * h[i] + tint * q) / nh; h[i] = nh; firm[i] = 0; act[i] = 1;
+    if (hasDir) { const f = Math.min(1, q / Math.max(0.5, Math.min(nh, P.mobile))); u[i] += (dirx * push - u[i]) * f; v[i] += (diry * push - v[i]) * f; }
   }
 }
 
@@ -606,7 +635,7 @@ function pressStamp(type, cx, cy, rot) {
       if (target < 0) target = 0;
       if (h[i] > target) { const rem = h[i] - target; removed += rem; cm += c[i] * rem; h[i] = target; }
       firm[i] = Math.max(firm[i], Math.min(1, m * 1.6));
-      act[i] = 0;
+      act[i] = 0; u[i] = 0; v[i] = 0;
     } else if (near[k] > 0.02) {
       firm[i] = Math.max(firm[i], 0.6); // sand squashed around the edge
     }
@@ -629,7 +658,8 @@ function pressStamp(type, cx, cy, rot) {
 }
 
 // colourful sprites for the press animation
-const sprites = {};
+const sprites = {}, shadows = {};
+const SHADOWPAL = { a: '#3b2508', b: '#3b2508', d: '#3b2508', e: '#3b2508' };
 function buildStampSprites() {
   for (const t of STAMPS) {
     const s = Math.ceil(STAMP_R * 2.4 * DPR), cnv = document.createElement('canvas');
@@ -638,13 +668,47 @@ function buildStampSprites() {
     g.translate(s / 2, s / 2); g.scale(STAMP_R * DPR, STAMP_R * DPR);
     drawShape(g, t, PAL[t]);
     sprites[t] = cnv;
+    const sc = document.createElement('canvas'); sc.width = sc.height = s;
+    const sg = sc.getContext('2d'); sg.translate(s / 2, s / 2); sg.scale(STAMP_R * DPR, STAMP_R * DPR);
+    drawShape(sg, t, SHADOWPAL); shadows[t] = sc;
   }
 }
 
 const anims = [];
-function startStamp(type, cssX, cssY) {
-  const rot = (Math.random() - 0.5) * 0.7;
+function startStamp(type, cssX, cssY, rot) {
   anims.push({ type, x: cssX, y: cssY, rot, t0: performance.now(), done: false });
+}
+
+// Stamps being carried by a finger: they hover and follow until let go.
+const carries = new Map();
+const LIFT = 1.18;
+function pickUpStamp(id, type, x, y) {
+  carries.set(id, { type, x, y, rot: (Math.random() - 0.5) * 0.5, wob: Math.random() * 6, t0: performance.now() });
+  sound.pickup();
+}
+function moveStamp(id, x, y) { const k = carries.get(id); if (k) { k.x = x; k.y = y; } }
+function dropStamp(id, press) {
+  const k = carries.get(id); if (!k) return;
+  carries.delete(id);
+  if (press && k.x != null && k.x >= 0 && k.y >= 0 && k.x <= cssW && k.y <= cssH) startStamp(k.type, k.x, k.y, k.rot);
+}
+function drawSprite(spr, shd, x, y, rot, scale, lift, alpha) {
+  const sz = spr.width / DPR * scale;
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(rot);
+  ctx.globalAlpha = alpha * (0.32 - 0.12 * lift);
+  ctx.drawImage(shd, -sz / 2 + 10 * lift + 2, -sz / 2 + 14 * lift + 3, sz, sz); // shadow on the sand
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(spr, -sz / 2, -sz / 2, sz, sz);
+  ctx.restore();
+}
+function drawCarries(now) {
+  for (const k of carries.values()) {
+    if (k.x == null || k.x < -40 || k.y < -40 || k.x > cssW + 40 || k.y > cssH + 40) continue;
+    const t = (now - k.t0) / 1000, grow = Math.min(1, (now - k.t0) / 120);
+    const wob = Math.sin(t * 5 + k.wob) * 0.05;
+    drawSprite(sprites[k.type], shadows[k.type], k.x, k.y, k.rot + wob, 1 + (LIFT - 1) * grow, grow, 0.75 + 0.25 * grow);
+  }
 }
 
 function drawAnims(now) {
@@ -659,18 +723,9 @@ function drawAnims(now) {
     }
     if (t > DOWN + UP) { anims.splice(n, 1); continue; }
     let scale, alpha, lift;
-    if (t < DOWN) { const u = t / DOWN; scale = 1.35 - 0.35 * u * u; lift = 1 - u * u; alpha = 0.55 + 0.45 * u; }
-    else { const u = (t - DOWN) / UP; scale = 1 + 0.25 * u; lift = u; alpha = 1 - u; }
-    const spr = sprites[a.type], sz = spr.width / DPR * scale;
-    ctx.save();
-    ctx.translate(a.x, a.y); ctx.rotate(a.rot);
-    ctx.globalAlpha = alpha * 0.35;
-    ctx.filter = 'none';
-    ctx.drawImage(spr, -sz / 2 + 8 * lift + 2, -sz / 2 + 12 * lift + 3, sz, sz); // shadow-ish
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(spr, -sz / 2, -sz / 2, sz, sz);
-    ctx.restore();
+    if (t < DOWN) { const q = t / DOWN; scale = LIFT - (LIFT - 1) * q * q; lift = 1 - q * q; alpha = 1; }
+    else { const q = (t - DOWN) / UP; scale = 1 + 0.25 * q; lift = q; alpha = 1 - q; }
+    drawSprite(sprites[a.type], shadows[a.type], a.x, a.y, a.rot, scale, lift, alpha);
   }
 }
 
@@ -693,7 +748,7 @@ function stepWave() {
   for (let y = 0; y < rows; y++) {
     const back = (wave.y - y * CELL) / 140, f = Math.min(0.25, 0.03 + back * 0.12);
     for (let x = 0, i = y * W; x < W; x++, i++) {
-      h[i] += (m - h[i]) * f; firm[i] *= 0.8; act[i] = 0;
+      h[i] += (m - h[i]) * f; firm[i] *= 0.8; act[i] = 0; u[i] = 0; v[i] = 0;
       if (wet[i] < 1) wet[i] = Math.min(1, wet[i] + 0.12);
     }
   }
@@ -739,15 +794,19 @@ function makeGrain() {
 function render(now) {
   const Lx = -0.42, Ly = -0.56, Lz = 0.71;
   const sandR = 228, sandG = 197, sandB = 148, flR = 64, flG = 158, flB = 214;
+  const DROP = 0.6; // low sun from the top-left casts soft shadows down-right
   for (let y = 0; y < H; y++) {
     const up = y > 0 ? -W : 0, dn = y < H - 1 ? W : 0;
     for (let x = 0; x < W; x++) {
       const i = y * W + x, lf = x > 0 ? -1 : 0, rt = x < W - 1 ? 1 : 0;
+      const hcur = h[i], caster = (x > 0 && y > 0) ? sh[i - W - 1] - DROP : hcur;
+      sh[i] = caster > hcur ? caster : hcur;
+      let shade = (caster - hcur) * 0.45; shade = shade < 0 ? 0 : shade > 1 ? 1 : shade;
       const gx = (h[i + rt] - h[i + lf]) * 0.36, gy = (h[i + dn] - h[i + up]) * 0.36;
       let s = (-gx * Lx - gy * Ly + Lz) / Math.sqrt(gx * gx + gy * gy + 1);
       if (s < 0) s = 0;
       const hh = h[i], w = wet[i];
-      let lum = (0.3 + 0.92 * s) * c[i] * (1 - 0.22 * w);
+      let lum = (0.3 + 0.92 * s) * (1 - 0.3 * shade) * c[i] * (1 - 0.22 * w);
       if (hh < 5) lum *= 0.84 + 0.032 * hh; // deeper sand is damper and darker
       let r = sandR * lum, g = sandG * lum * (1 - 0.03 * w), b = sandB * lum * (1 + 0.06 * w);
       if (hh < 1.2) { // the blue tray floor peeks through
@@ -779,6 +838,7 @@ function render(now) {
   }
   drawWave();
   drawAnims(now);
+  drawCarries(now);
 }
 
 // ---------- sound ----------
@@ -831,6 +891,13 @@ const sound = (() => {
       const g = a.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.5, t + 0.5); g.gain.linearRampToValueAtTime(0.0001, t + 2);
       s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + 2);
     },
+    pickup() {
+      if (!a || muted) return; const t = a.currentTime;
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(420, t); o.frequency.exponentialRampToValueAtTime(760, t + 0.1);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.2);
+    },
     toggle() { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.9; return muted; },
     suspend() { if (a && a.state === 'running') a.suspend(); },
     resume() { if (a && a.state === 'suspended') a.resume(); },
@@ -849,7 +916,7 @@ cv.addEventListener('pointerdown', e => {
   try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   const [x, y] = localXY(e);
   pointers.set(e.pointerId, { x, y, t: performance.now(), tool });
-  if (tool === 'stamp') startStamp(stampType, x, y);
+  if (tool === 'stamp') pickUpStamp(e.pointerId, stampType, x, y);
   else if (tool === 'hand') plow(x / CELL, y / CELL, 0, 0, 0);
 });
 
@@ -875,6 +942,17 @@ cv.addEventListener('pointermove', e => {
 });
 
 function endPointer(e) { pointers.delete(e.pointerId); }
+
+// carried stamps follow the finger anywhere (including straight off a toolbar button)
+window.addEventListener('pointermove', e => {
+  if (!carries.size || !carries.has(e.pointerId)) return;
+  const [x, y] = localXY(e); moveStamp(e.pointerId, x, y);
+});
+window.addEventListener('pointerup', e => {
+  if (!carries.has(e.pointerId)) return;
+  const [x, y] = localXY(e); moveStamp(e.pointerId, x, y); dropStamp(e.pointerId, true);
+});
+window.addEventListener('pointercancel', e => dropStamp(e.pointerId, false));
 cv.addEventListener('pointerup', endPointer);
 cv.addEventListener('pointercancel', endPointer);
 cv.addEventListener('lostpointercapture', endPointer);
@@ -884,7 +962,7 @@ function pourStep() {
   for (const p of pointers.values()) {
     if (p.tool !== 'pour') continue; n++;
     const gx = p.x / CELL, gy = p.y / CELL, spread = 7 / CELL;
-    for (let k = 0; k < 36; k++) {
+    for (let k = 0; k < 48; k++) {
       const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * spread;
       const x = Math.max(0, Math.min(W - 1, gx + Math.cos(a) * r)), y = Math.max(0, Math.min(H - 1, gy + Math.sin(a) * r));
       spawnGrain(x, y, h[(y | 0) * W + (x | 0)] + 22 + Math.random() * 10, (Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.08, -0.6, 0.3, grainTint());
@@ -906,7 +984,7 @@ function mkBtn(row, content, label, onPress, cls) {
   const b = document.createElement('button');
   b.className = 'btn' + (cls ? ' ' + cls : ''); b.setAttribute('aria-label', label);
   if (typeof content === 'string') b.textContent = content; else b.appendChild(content);
-  b.addEventListener('pointerdown', e => { e.preventDefault(); sound.init(); onPress(b); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); });
+  b.addEventListener('pointerdown', e => { e.preventDefault(); sound.init(); onPress(b, e); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); });
   row.appendChild(b); buttons.push(b); return b;
 }
 function select(b) { buttons.forEach(x => x.classList.toggle('sel', x === b)); }
@@ -919,7 +997,11 @@ mkBtn(toolsRow, '🔊', 'Sound on or off', b => { b.textContent = sound.toggle()
 for (const t of STAMPS) {
   const ic = document.createElement('canvas'); ic.width = ic.height = 128;
   const g = ic.getContext('2d'); g.translate(64, 64); g.scale(54, 54); drawShape(g, t, PAL[t]);
-  mkBtn(stampsRow, ic, t + ' stamp', b => { tool = 'stamp'; stampType = t; select(b); });
+  mkBtn(stampsRow, ic, t + ' stamp', (b, e) => {
+    tool = 'stamp'; stampType = t; select(b);
+    try { b.releasePointerCapture(e.pointerId); } catch (_) {}
+    pickUpStamp(e.pointerId, t, null, null); // drag it off the button onto the sand
+  });
 }
 select(handBtn);
 

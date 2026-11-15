@@ -10,7 +10,7 @@ A phone-browser sand tray for toddlers. No install, no ads, no text to read. It 
 | 🪣 | Hold a finger down to pour a stream of sand that builds a cone-shaped pile. |
 | 🌊 | A wave washes over the tray, leaves it flat and wet, and re-levels the tilt (see below). |
 | 🔊 | Sound on or off. |
-| 🐢 ⭐ 🐚 🐟 🦀 ❤️ | Pick a stamp, then tap the sand to press it in. |
+| 🐢 ⭐ 🐚 🐟 🦀 ❤️ | Drag a stamp off its button onto the sand, or pick one and touch the sand. The stamp lifts up and follows the finger, then presses in where the finger lets go. |
 
 **Tilt** the phone and the sand slides downhill, piles against the low wall, and shows the blue floor at the high end. **Shake** the phone and the sand loosens and settles flat.
 
@@ -26,12 +26,12 @@ The tray is a grid of sand columns (one cell ≈ 2 screen pixels). Each column s
 On every frame:
 
 1. **Avalanching.** Sand moves to any of its 8 neighbours when the slope between them is steeper than the *angle of repose* (about 36° for still sand, 28° for sand that is already moving, which keeps an avalanche going once it starts). The slope is measured against the phone's real gravity vector, so tilting the phone changes which way is downhill.
-2. **Bulk sliding.** Where the slope including tilt is steep enough, a thin surface layer slides as a sheet.
+2. **Flow with momentum.** The surface layer of each column has a velocity. Gravity along the slope (terrain plus phone tilt) speeds it up, and friction at the angle of repose slows it down. Sand surges downhill, carries on a little, piles against the walls and comes to rest. Sand shoved by a finger or landing from the air brings its momentum with it.
 3. **Airborne grains.** Poured and flicked grains are individual particles. They fall under gravity, cast shadows and join the sand where they land.
 
 Sand is conserved: anything dug or stamped out is pushed into ridges and rims, and nothing disappears. The only exception is the 🪣, which adds sand.
 
-The lighting is computed from the surface slope, with light coming from the top-left. That shading is what makes grooves, piles and imprints look 3-D.
+The lighting is computed from the surface slope, with light coming from a low sun at the top-left. Piles and ridges also cast soft shadows. That shading is what makes grooves, piles and imprints look 3-D.
 
 Tilt is deliberately about 2× more sensitive than a real sand tray. Real sand needs about 35° of tilt to slide, which is a lot to ask of small hands.
 
