@@ -10,8 +10,7 @@ A phone-browser sand tray for toddlers. No install, no ads, no text to read. It 
 | 🪣 | Hold a finger down to pour a stream of sand that builds a cone-shaped pile. |
 | Hose (green coil) | Hold a finger down to spray water just above it. The jet blasts out a crater, the water pools in hollows, runs downhill (tilt the phone to slosh it), carves little channels and slowly soaks in, leaving dark wet sand. |
 | 🌊 | A wave washes over the tray, leaves it flat and wet, buries a new set of dinosaurs, and re-levels the tilt (see below). |
-| 🔊 | Sound on or off. |
-| 🐢 ⭐ 🐚 🐟 🦀 ❤️ | Drag a stamp off its button onto the sand, or pick one and touch the sand. The stamp lifts up and follows the finger, then presses in where the finger lets go. |
+| 🐢 (stamp button) | Opens the six stamps (🐢 ⭐ 🐚 🐟 🦀 ❤️). Drag a stamp off its button onto the sand, or pick one and touch the sand. The stamp lifts up and follows the finger, then presses in where the finger lets go. |
 
 ### Dinosaur dig 🦖
 
@@ -44,6 +43,11 @@ The lighting is computed from the surface slope, with light coming from a low su
 Tilt is deliberately about 2× more sensitive than a real sand tray. Real sand needs about 35° of tilt to slide, which is a lot to ask of small hands.
 
 ## Grown-up notes
+
+- **Settings:** press and hold the ⚙️ in the top corner for about a second; a quick tap does nothing, so little fingers won't open it. Settings are remembered on this phone:
+  - **Tilt & shake:** turns the motion sensors off, so the sand stays put however the phone is held.
+  - **How deep the dinosaurs are buried:** *Shallow* (toys just under the surface, easy finds), *Medium*, or *Deep* (a thick sand bed and only faint lumps). Changing it washes the tray smooth and buries a new set.
+  - **Sound:** on or off.
 
 - **Level calibration:** the way the phone is held when you tap the start button (or 🌊) counts as "flat". Hold it the way your child will.
 - **Keep them in the app:** add it to the home screen to remove the browser bars. To lock the phone to this one app, use **Guided Access** on iPhone (Settings → Accessibility) or **App pinning** on Android.

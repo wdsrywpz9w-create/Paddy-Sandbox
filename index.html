@@ -14,8 +14,8 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <style>
   :root {
-    --b: min(64px, calc((100vw - 64px) / 6.3));
-    --gap: min(10px, 2vw);
+    --b: min(64px, calc((100vw - 64px) / 5.4));
+    --gap: min(9px, 2vw);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -32,29 +32,40 @@
   }
   #frame {
     flex: 1; min-height: 0;
-    margin: 10px 10px 8px;
-    padding: 12px;
-    border-radius: 28px;
+    margin: 4px 4px 8px;
+    padding: 7px;
+    border-radius: 20px;
     background:
       repeating-linear-gradient(92deg, rgba(255,255,255,.07) 0 3px, rgba(0,0,0,.05) 3px 9px, rgba(255,255,255,0) 9px 17px),
       linear-gradient(160deg, #d99a5b, #b8743a 60%, #a5652f);
-    box-shadow: 0 8px 0 #8a5326, 0 14px 24px rgba(0,0,0,.25), inset 0 2px 0 rgba(255,255,255,.35);
+    box-shadow: 0 5px 0 #8a5326, 0 10px 18px rgba(0,0,0,.22), inset 0 2px 0 rgba(255,255,255,.35);
   }
   #tray {
     position: relative; width: 100%; height: 100%;
-    border-radius: 18px; overflow: hidden;
+    border-radius: 14px; overflow: hidden;
     background: #4aa3d4;
   }
   #sand { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #shade {
-    position: absolute; inset: 0; pointer-events: none; border-radius: 18px;
+    position: absolute; inset: 0; pointer-events: none; border-radius: 14px;
     box-shadow: inset 0 7px 14px rgba(60,30,0,.45), inset 0 -3px 8px rgba(255,255,255,.18),
                 inset 5px 0 10px rgba(60,30,0,.25), inset -5px 0 10px rgba(60,30,0,.25);
   }
   #ui {
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
-    padding: 4px 8px calc(12px + env(safe-area-inset-bottom));
+    position: relative;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 2px 6px calc(8px + env(safe-area-inset-bottom));
   }
+  #stamps {
+    position: absolute; bottom: calc(100% + 6px); left: 50%; z-index: 4;
+    transform: translateX(-50%) translateY(10px) scale(.9); opacity: 0; pointer-events: none;
+    padding: 9px; border-radius: 999px; background: rgba(255,250,235,.92);
+    box-shadow: 0 6px 18px rgba(0,0,0,.25);
+    transition: transform .2s cubic-bezier(.3,1.5,.5,1), opacity .15s;
+    --b: min(54px, calc((100vw - 90px) / 6.2));
+  }
+  #stamps.open { transform: translateX(-50%); opacity: 1; pointer-events: auto; }
+  #stamps .btn { box-shadow: 0 3px 0 rgba(0,40,70,.2); }
   .row { display: flex; gap: var(--gap); justify-content: center; }
   .btn {
     width: var(--b); height: var(--b); padding: 0;
@@ -75,7 +86,41 @@
   .btn.pop { animation: pop .35s; }
   @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.3) rotate(-8deg); } 100% { transform: scale(1.14) translateY(-3px); } }
   .btn.action.sel { background: #fffdf6; transform: none; box-shadow: 0 5px 0 rgba(0,40,70,.25); }
-  .btn.small { opacity: .85; }
+  #gear {
+    position: fixed; z-index: 5; width: 34px; height: 34px; padding: 0;
+    top: calc(env(safe-area-inset-top) + 1px); right: calc(env(safe-area-inset-right) + 1px);
+    border: none; border-radius: 50%; background: rgba(255,255,255,.55);
+    font-size: 18px; line-height: 1; opacity: .7; touch-action: none;
+  }
+  #gear::after {
+    content: ""; position: absolute; inset: -3px; border-radius: 50%;
+    border: 3px solid #ffcf3f; clip-path: inset(0 100% 0 0); opacity: 0;
+  }
+  #gear.holding::after { opacity: 1; animation: hold 1.2s linear forwards; }
+  @keyframes hold { to { clip-path: inset(0 0 0 0); } }
+  #settings {
+    position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
+    background: rgba(20,50,70,.55); padding: 16px;
+  }
+  #settings.hide { display: none; }
+  #settings .panel {
+    width: min(360px, 100%); background: #fffaf0; border-radius: 22px; padding: 20px 18px 18px;
+    color: #4a3015; box-shadow: 0 12px 30px rgba(0,0,0,.3);
+  }
+  #settings h2 { margin: 0 0 14px; font-size: 21px; }
+  #settings .opt { margin-bottom: 16px; }
+  #settings .opt > span { display: block; font-weight: 700; margin-bottom: 7px; }
+  #settings .seg { display: flex; gap: 6px; }
+  #settings .seg button {
+    flex: 1; padding: 11px 4px; border-radius: 12px; border: 2px solid #e2c9a0;
+    background: #fff; color: #4a3015; font: inherit; font-weight: 700; font-size: 15px;
+  }
+  #settings .seg button.on { background: #ffe36b; border-color: #e0a92a; }
+  #settings .note { font-size: 13px; opacity: .7; margin: -6px 0 14px; line-height: 1.35; }
+  #done {
+    width: 100%; padding: 13px; border: none; border-radius: 14px; background: #3aa7d9; color: #fff;
+    font: inherit; font-size: 17px; font-weight: 800;
+  }
 
   #start {
     position: fixed; inset: 0; z-index: 10;
@@ -99,14 +144,29 @@
 <body>
   <div id="frame"><div id="tray"><canvas id="sand"></canvas><div id="shade"></div></div></div>
   <div id="ui">
-    <div class="row" id="tools"></div>
     <div class="row" id="stamps"></div>
+    <div class="row" id="tools"></div>
   </div>
 
   <div id="start">
     <button id="play" aria-label="Play">🏖️</button>
     <div class="hint">Tap to play!</div>
-    <div class="small">Grown-ups: hold the phone how your little one will hold it, then tap. Tilt to pour the sand, tap 🌊 to smooth it and re-level.</div>
+    <div class="small">Grown-ups: hold the phone how your little one will hold it, then tap. Tilt to pour the sand, tap 🌊 to smooth it and re-level. Press and hold ⚙️ (top corner) for settings.</div>
+  </div>
+
+  <button id="gear" aria-label="Grown-up settings (press and hold)">⚙️</button>
+  <div id="settings" class="hide" role="dialog" aria-label="Grown-up settings">
+    <div class="panel">
+      <h2>Grown-up settings</h2>
+      <div class="opt"><span>Tilt &amp; shake (motion sensors)</span>
+        <div class="seg" data-key="motion"><button data-v="on">On</button><button data-v="off">Off</button></div></div>
+      <div class="opt"><span>How deep the dinosaurs are buried</span>
+        <div class="seg" data-key="bury"><button data-v="shallow">Shallow</button><button data-v="medium">Medium</button><button data-v="deep">Deep</button></div></div>
+      <p class="note">Changing the depth washes the sand smooth and buries a new set.</p>
+      <div class="opt"><span>Sound</span>
+        <div class="seg" data-key="sound"><button data-v="on">On</button><button data-v="off">Off</button></div></div>
+      <button id="done">Done</button>
+    </div>
   </div>
 
 <script>
@@ -124,6 +184,14 @@ const cv = document.getElementById('sand');
 const ctx = cv.getContext('2d');
 const small = document.createElement('canvas');
 const sctx = small.getContext('2d');
+
+// ---------- grown-up settings (remembered on this device) ----------
+const settings = { motion: 'on', bury: 'medium', sound: 'on' };
+try { Object.assign(settings, JSON.parse(localStorage.getItem('sandbox-settings') || '{}')); } catch (e) {}
+function saveSettings() { try { localStorage.setItem('sandbox-settings', JSON.stringify(settings)); } catch (e) {} }
+// sand bed thickness and the sand left over each toy, in screen px
+const BURY = { shallow: { bed: 13, cover: 2 }, medium: { bed: 15, cover: 5 }, deep: { bed: 22, cover: 10 } };
+const bury = () => BURY[settings.bury] || BURY.medium;
 
 // ---------- tunables ----------
 const P = {
@@ -157,7 +225,7 @@ function makeArrays(n) {
 
 function freshSand() {
   const p1 = Math.random() * 6, p2 = Math.random() * 6, p3 = Math.random() * 6;
-  const base = 15 / CELL;
+  const base = bury().bed / CELL;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x, X = x * CELL, Y = y * CELL;
     const dune = Math.sin(X * 0.018 + p1) * Math.sin(Y * 0.014 + p2) * 1.0
@@ -353,6 +421,7 @@ window.addEventListener('deviceorientation', e => {
 });
 
 window.addEventListener('devicemotion', e => {
+  if (settings.motion !== 'on') return;
   const a = e.acceleration;
   let m = 0;
   if (a && a.x != null) m = Math.hypot(a.x, a.y, a.z);
@@ -369,7 +438,7 @@ function screenAngle() {
 
 function updateTilt() {
   let gx = 0, gy = 0, gz = 1;
-  if (ori && g0) {
+  if (ori && g0 && settings.motion === 'on') {
     const g = norm(gvec(ori));
     // Basis that treats the "calibrated" pose as level.
     let by = [-g0[1] * g0[0], 1 - g0[1] * g0[1], -g0[1] * g0[2]];
@@ -948,7 +1017,7 @@ let objs = [];
 // toys start properly hidden: at least ~7px of sand over them
 function coverOver(i, hh) {
   if (base[i] > 0.05) firm[i] = 0.7; // the sand over a buried toy is packed down
-  const minC = base[i] > 0.05 ? 5 / CELL : 0.5; return hh > minC ? hh : minC;
+  const minC = base[i] > 0.05 ? bury().cover / CELL : 0.5; return hh > minC ? hh : minC;
 }
 function placeObjects() {
   const pick = DINOS.slice().sort(() => Math.random() - 0.5).slice(0, 4);
@@ -1073,8 +1142,7 @@ function drawHoses() {
 let wave = null;
 function startWave() {
   if (wave) return;
-  let s = 0; for (let i = 0; i < N; i++) s += h[i] + base[i];
-  wave = { y: -40, mean: s / N, t0: performance.now() };
+  wave = { y: -40, mean: bury().bed / CELL, t0: performance.now() }; // fresh, level sand
   needCal = true; // whatever pose the phone is in now becomes "level"
   if (!ori) needCal = true;
   sound.wave();
@@ -1210,7 +1278,7 @@ function render(now) {
 
 // ---------- sound ----------
 const sound = (() => {
-  let a = null, master = null, scrape, pour, flow, spray, noise, muted = false;
+  let a = null, master = null, scrape, pour, flow, spray, noise, muted = settings.sound === 'off';
   function chain(type, f, q) {
     const s = a.createBufferSource(); s.buffer = noise; s.loop = true;
     const fl = a.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
@@ -1226,7 +1294,7 @@ const sound = (() => {
         noise = a.createBuffer(1, a.sampleRate * 2, a.sampleRate);
         const d = noise.getChannelData(0);
         for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (Math.random() < 0.3 ? 1 : 0.35); // crackly grain noise
-        master = a.createGain(); master.gain.value = 0.9; master.connect(a.destination);
+        master = a.createGain(); master.gain.value = muted ? 0 : 0.9; master.connect(a.destination);
         scrape = chain('bandpass', 1500, 0.8); pour = chain('bandpass', 3400, 1.1); flow = chain('lowpass', 1100, 0.6); spray = chain('highpass', 2600, 0.5);
       } catch (e) { a = null; }
     },
@@ -1285,7 +1353,7 @@ const sound = (() => {
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
       o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.2);
     },
-    toggle() { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.9; return muted; },
+    setMuted(m) { muted = m; if (master) master.gain.value = muted ? 0 : 0.9; },
     suspend() { if (a && a.state === 'running') a.suspend(); },
     resume() { if (a && a.state === 'suspended') a.resume(); },
   };
@@ -1300,6 +1368,7 @@ function localXY(e) { const r = cv.getBoundingClientRect(); return [e.clientX - 
 
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
+  closeStamps();
   try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   const [x, y] = localXY(e);
   pointers.set(e.pointerId, { x, y, t: performance.now(), tool });
@@ -1360,7 +1429,7 @@ function pourStep() {
 
 // stop the page itself from scrolling / zooming / long-press menus
 ['touchstart', 'touchmove', 'gesturestart', 'gesturechange'].forEach(t =>
-  document.addEventListener(t, e => { if (e.target.closest('#start')) return; e.preventDefault(); }, { passive: false }));
+  document.addEventListener(t, e => { if (e.target.closest('#start, #settings')) return; e.preventDefault(); }, { passive: false }));
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 // ---------- toolbar ----------
@@ -1374,10 +1443,11 @@ function mkBtn(row, content, label, onPress, cls) {
   b.addEventListener('pointerdown', e => { e.preventDefault(); sound.init(); onPress(b, e); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); });
   row.appendChild(b); buttons.push(b); return b;
 }
-function select(b) { buttons.forEach(x => x.classList.toggle('sel', x === b)); }
+function select(b) { buttons.forEach(x => { if (x.parentElement !== stampsRow) x.classList.toggle('sel', x === b); }); }
 
-const handBtn = mkBtn(toolsRow, '✋', 'Dig with your finger', b => { tool = 'hand'; select(b); });
-mkBtn(toolsRow, '🪣', 'Pour sand', b => { tool = 'pour'; select(b); });
+const closeStamps = () => stampsRow.classList.remove('open');
+const handBtn = mkBtn(toolsRow, '✋', 'Dig with your finger', b => { tool = 'hand'; select(b); closeStamps(); });
+mkBtn(toolsRow, '🪣', 'Pour sand', b => { tool = 'pour'; select(b); closeStamps(); });
 {
   const ic = document.createElement('canvas'); ic.width = ic.height = 128;
   const g = ic.getContext('2d'); g.lineCap = 'round';
@@ -1388,19 +1458,29 @@ mkBtn(toolsRow, '🪣', 'Pour sand', b => { tool = 'pour'; select(b); });
   g.restore();
   g.fillStyle = '#3aa0f0';
   for (const [x, y, r] of [[98, 22, 7], [114, 12, 5], [108, 36, 6], [120, 28, 4]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
-  mkBtn(toolsRow, ic, 'Spray water with the hose', b => { tool = 'hose'; select(b); });
+  mkBtn(toolsRow, ic, 'Spray water with the hose', b => { tool = 'hose'; select(b); closeStamps(); });
 }
-mkBtn(toolsRow, '🌊', 'Smooth the sand', b => { startWave(); }, 'action');
-mkBtn(toolsRow, '🔊', 'Sound on or off', b => { b.textContent = sound.toggle() ? '🔇' : '🔊'; }, 'action small');
+// one stamp button shows the current stamp; pressing it pops the stamp choices open
+const stampIcon = document.createElement('canvas'); stampIcon.width = stampIcon.height = 128;
+function drawStampIcon() {
+  const g = stampIcon.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 128, 128);
+  g.translate(64, 64); g.scale(54, 54); drawShape(g, stampType, PAL[stampType]);
+}
+drawStampIcon();
+const stampBtn = mkBtn(toolsRow, stampIcon, 'Stamps', b => { tool = 'stamp'; select(b); stampsRow.classList.toggle('open'); });
+mkBtn(toolsRow, '🌊', 'Smooth the sand', b => { startWave(); closeStamps(); }, 'action');
 
 for (const t of STAMPS) {
   const ic = document.createElement('canvas'); ic.width = ic.height = 128;
   const g = ic.getContext('2d'); g.translate(64, 64); g.scale(54, 54); drawShape(g, t, PAL[t]);
-  mkBtn(stampsRow, ic, t + ' stamp', (b, e) => {
-    tool = 'stamp'; stampType = t; select(b);
+  const sb = mkBtn(stampsRow, ic, t + ' stamp', (b, e) => {
+    tool = 'stamp'; stampType = t; select(stampBtn); drawStampIcon();
+    stampsRow.querySelectorAll('.btn').forEach(x => x.classList.toggle('sel', x === b));
     try { b.releasePointerCapture(e.pointerId); } catch (_) {}
-    pickUpStamp(e.pointerId, t, null, null); // drag it off the button onto the sand
+    pickUpStamp(e.pointerId, t, null, null); // drag it straight off the button onto the sand
+    setTimeout(closeStamps, 150);
   });
+  if (t === stampType) sb.classList.add('sel');
 }
 select(handBtn);
 
@@ -1408,12 +1488,7 @@ select(handBtn);
 const startEl = document.getElementById('start');
 document.getElementById('play').addEventListener('click', async () => {
   sound.init();
-  try {
-    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function')
-      await DeviceOrientationEvent.requestPermission();
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function')
-      await DeviceMotionEvent.requestPermission();
-  } catch (e) {}
+  if (settings.motion === 'on') await askMotion();
   needCal = true;
   try {
     const de = document.documentElement;
@@ -1421,6 +1496,44 @@ document.getElementById('play').addEventListener('click', async () => {
   } catch (e) {}
   startEl.classList.add('hide');
   setTimeout(() => { try { screen.orientation.lock('portrait'); } catch (e) {} }, 300);
+});
+async function askMotion() {
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function')
+      await DeviceOrientationEvent.requestPermission();
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function')
+      await DeviceMotionEvent.requestPermission();
+  } catch (e) {}
+}
+
+// ---------- grown-up settings panel (press and hold the gear) ----------
+const gear = document.getElementById('gear'), panel = document.getElementById('settings');
+let holdTimer = 0, buryWhenOpened = settings.bury;
+function showSettings() {
+  buryWhenOpened = settings.bury;
+  panel.querySelectorAll('.seg').forEach(seg => seg.querySelectorAll('button').forEach(b =>
+    b.classList.toggle('on', settings[seg.dataset.key] === b.dataset.v)));
+  panel.classList.remove('hide');
+}
+gear.addEventListener('pointerdown', e => {
+  e.preventDefault(); gear.classList.add('holding');
+  holdTimer = setTimeout(() => { gear.classList.remove('holding'); showSettings(); }, 1200);
+});
+['pointerup', 'pointerleave', 'pointercancel'].forEach(t => gear.addEventListener(t, () => { clearTimeout(holdTimer); gear.classList.remove('holding'); }));
+gear.addEventListener('contextmenu', e => e.preventDefault());
+panel.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', async () => {
+  const key = b.parentElement.dataset.key;
+  settings[key] = b.dataset.v; saveSettings();
+  b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  if (key === 'sound') sound.setMuted(settings.sound === 'off');
+  if (key === 'motion') {
+    if (settings.motion === 'on') { await askMotion(); needCal = true; }
+    else { tiltX = tiltY = 0; agit = 0; }
+  }
+}));
+document.getElementById('done').addEventListener('click', () => {
+  panel.classList.add('hide');
+  if (settings.bury !== buryWhenOpened) startWave(); // re-bury at the new depth
 });
 
 document.addEventListener('visibilitychange', () => { document.hidden ? sound.suspend() : sound.resume(); });
