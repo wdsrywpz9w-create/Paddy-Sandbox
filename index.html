@@ -14,8 +14,8 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <style>
   :root {
-    --b: min(64px, calc((100vw - 64px) / 5.4));
-    --gap: min(9px, 2vw);
+    --b: min(58px, calc((100vw - 52px) / 7.3));
+    --gap: min(8px, 1.6vw);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -56,7 +56,7 @@
     display: flex; flex-direction: column; align-items: center;
     padding: 2px 6px calc(8px + env(safe-area-inset-bottom));
   }
-  #stamps {
+  .popup {
     position: absolute; bottom: calc(100% + 6px); left: 50%; z-index: 4;
     transform: translateX(-50%) translateY(10px) scale(.9); opacity: 0; pointer-events: none;
     padding: 9px; border-radius: 999px; background: rgba(255,250,235,.92);
@@ -64,8 +64,9 @@
     transition: transform .2s cubic-bezier(.3,1.5,.5,1), opacity .15s;
     --b: min(54px, calc((100vw - 90px) / 6.2));
   }
-  #stamps.open { transform: translateX(-50%); opacity: 1; pointer-events: auto; }
-  #stamps .btn { box-shadow: 0 3px 0 rgba(0,40,70,.2); }
+  .popup.open { transform: translateX(-50%); opacity: 1; pointer-events: auto; }
+  .popup .btn { box-shadow: 0 3px 0 rgba(0,40,70,.2); }
+  #dyes { --b: min(46px, calc((100vw - 96px) / 8.4)); gap: 6px; }
   .row { display: flex; gap: var(--gap); justify-content: center; }
   .btn {
     width: var(--b); height: var(--b); padding: 0;
@@ -144,7 +145,8 @@
 <body>
   <div id="frame"><div id="tray"><canvas id="sand"></canvas><div id="shade"></div></div></div>
   <div id="ui">
-    <div class="row" id="stamps"></div>
+    <div class="row popup" id="stamps"></div>
+    <div class="row popup" id="dyes"></div>
     <div class="row" id="tools"></div>
   </div>
 
@@ -213,6 +215,7 @@ let h, c, dh, cin, outm, act, firm, wet, thr, img, img32;
 let u, v, pu, pv, qin, sh; // flow velocity, incoming momentum, shadow height
 let base, objId, sf, wat, dw, dsand; // buried-toy floor height, toy id per cell, surface, water
 let waterTotal = 0;
+let kr, kg, kb, kir, kig, kib, dyeUsed = false; // grain colour (dye) multipliers per cell, and their inflow accumulators
 let FINGER_R = 16, STAMP_R = 60, OBJ_R = 56;
 let wetActive = false;
 
@@ -220,6 +223,7 @@ let wetActive = false;
 function makeArrays(n) {
   return {
     h: new Float32Array(n), c: new Float32Array(n), firm: new Float32Array(n), wet: new Float32Array(n),
+    kr: new Float32Array(n).fill(1), kg: new Float32Array(n).fill(1), kb: new Float32Array(n).fill(1),
   };
 }
 
@@ -232,7 +236,7 @@ function freshSand() {
                + Math.sin((X + Y) * 0.031 + p3) * 0.45
                + Math.sin(X * 0.06 - Y * 0.045 + p1) * 0.2;
     h[i] = base + dune * (4 / CELL);
-    c[i] = grainTint();
+    c[i] = grainTint(); kr[i] = kg[i] = kb[i] = 1;
     firm[i] = 0; wet[i] = 0;
   }
 }
@@ -260,11 +264,13 @@ function resize() {
       const ox = Math.min(W - 1, Math.floor(x * W / nW)), oy = Math.min(H - 1, Math.floor(y * H / nH));
       const o = oy * W + ox, i = y * nW + x;
       fresh.h[i] = h[o] * scale; fresh.c[i] = c[o]; fresh.firm[i] = firm[o]; fresh.wet[i] = wet[o];
+      fresh.kr[i] = kr[o]; fresh.kg[i] = kg[o]; fresh.kb[i] = kb[o];
     }
   }
   const hadSand = !!h;
   W = nW; H = nH; N = W * H; CELL = newCell; cssW = nw; cssH = nh;
-  h = fresh.h; c = fresh.c; firm = fresh.firm; wet = fresh.wet;
+  h = fresh.h; c = fresh.c; firm = fresh.firm; wet = fresh.wet; kr = fresh.kr; kg = fresh.kg; kb = fresh.kb;
+  kir = new Float32Array(N); kig = new Float32Array(N); kib = new Float32Array(N);
   dh = new Float32Array(N); cin = new Float32Array(N); outm = new Float32Array(N);
   thr = new Float32Array(N); act = new Uint8Array(N);
   u = new Float32Array(N); v = new Float32Array(N); pu = new Float32Array(N); pv = new Float32Array(N);
@@ -304,6 +310,9 @@ function relax(tx, ty, agit) {
     thr_[i] = (act_[i] ? Td : T) + firm_[i] * COH + wet_[i] * WC - (wa > 0.3 ? 0.3 : wa);
   }
   dh_.fill(0); cin_.fill(0); outm_.fill(0);
+  const kr_ = kr, kg_ = kg, kb_ = kb, ir_ = kir, ig_ = kig, ib_ = kib;
+  const col = dyeUsed; // colour bookkeeping only once some sand has been dyed
+  if (col) { ir_.fill(0); ig_.fill(0); ib_.fill(0); }
   const k = P.k, kd = P.k * 0.7, S2 = Math.SQRT2, dse = tx + ty, dsw = ty - tx;
   let flow = 0;
   const mv = (i, j, d, ti, tj, kk) => {
@@ -312,10 +321,12 @@ function relax(tx, ty, agit) {
       q = (d - ti) * kk; const cap = h_[i] * 0.05; if (q > cap) q = cap;
       if (q < 1e-4) return;
       dh_[i] -= q; dh_[j] += q; outm_[i] += q; cin_[j] += c_[i] * q; flow += q;
+      if (col) { ir_[j] += kr_[i] * q; ig_[j] += kg_[i] * q; ib_[j] += kb_[i] * q; }
     } else if (d < -tj) {
       q = (-d - tj) * kk; const cap = h_[j] * 0.05; if (q > cap) q = cap;
       if (q < 1e-4) return;
       dh_[j] -= q; dh_[i] += q; outm_[j] += q; cin_[i] += c_[j] * q; flow += q;
+      if (col) { ir_[i] += kr_[j] * q; ig_[i] += kg_[j] * q; ib_[i] += kb_[j] * q; }
     }
   };
   const Wm = w - 1;
@@ -364,8 +375,8 @@ function relax(tx, ty, agit) {
       act_[i] = 1;
       const M = hi * 0.6 < L ? hi * 0.6 : L;
       const qx = M * (ui < 0 ? -ui : ui), qy = M * (vi < 0 ? -vi : vi);
-      if (qx > 1e-5) { const j = ui > 0 ? i + 1 : i - 1; dh_[j] += qx; cin_[j] += c_[i] * qx; pu_[j] += qx * ui; pv_[j] += qx * vi; qin_[j] += qx; }
-      if (qy > 1e-5) { const j = vi > 0 ? i + w : i - w; dh_[j] += qy; cin_[j] += c_[i] * qy; pu_[j] += qy * ui; pv_[j] += qy * vi; qin_[j] += qy; }
+      if (qx > 1e-5) { const j = ui > 0 ? i + 1 : i - 1; dh_[j] += qx; cin_[j] += c_[i] * qx; if (col) { ir_[j] += kr_[i] * qx; ig_[j] += kg_[i] * qx; ib_[j] += kb_[i] * qx; } pu_[j] += qx * ui; pv_[j] += qx * vi; qin_[j] += qx; }
+      if (qy > 1e-5) { const j = vi > 0 ? i + w : i - w; dh_[j] += qy; cin_[j] += c_[i] * qy; if (col) { ir_[j] += kr_[i] * qy; ig_[j] += kg_[i] * qy; ib_[j] += kb_[i] * qy; } pu_[j] += qy * ui; pv_[j] += qy * vi; qin_[j] += qy; }
       dh_[i] -= qx + qy; outm_[i] += qx + qy; flow += qx + qy;
     }
   }
@@ -373,7 +384,11 @@ function relax(tx, ty, agit) {
     const o = outm_[i], d = dh_[i];
     if (o === 0 && d === 0) { act_[i] = 0; continue; }
     const h0 = h_[i], nh = h0 + d, inflow = d + o;
-    if (nh > 1e-5) c_[i] = (c_[i] * (h0 - o) + cin_[i]) / nh;
+    if (nh > 1e-5) {
+      const keep = h0 - o, inv = 1 / nh;
+      c_[i] = (c_[i] * keep + cin_[i]) * inv;
+      if (col) { kr_[i] = (kr_[i] * keep + ir_[i]) * inv; kg_[i] = (kg_[i] * keep + ig_[i]) * inv; kb_[i] = (kb_[i] * keep + ib_[i]) * inv; }
+    }
     h_[i] = nh < 0 ? 0 : nh;
     act_[i] = (o > 0.004 || u_[i] !== 0 || v_[i] !== 0) ? 1 : 0;
     const qi = qin_[i];
@@ -474,9 +489,16 @@ window.addEventListener('keyup', e => {
 const parts = [];
 const MAXP = 3500;
 
-function spawnGrain(x, y, z, vx, vy, vz, m, tint) {
+function spawnGrain(x, y, z, vx, vy, vz, m, tint, r = 1, g = 1, b = 1) {
   if (parts.length >= MAXP) return;
-  parts.push({ x, y, z, vx, vy, vz, m, c: tint });
+  parts.push({ x, y, z, vx, vy, vz, m, c: tint, kr: r, kg: g, kb: b });
+}
+// add q of sand with a given tint and colour on top of cell i
+function mixInto(i, q, tint, r, g, b) {
+  const nh = h[i] + q; if (nh <= 1e-6) return;
+  const a = h[i] / nh, e = q / nh;
+  c[i] = c[i] * a + tint * e; kr[i] = kr[i] * a + r * e; kg[i] = kg[i] * a + g * e; kb[i] = kb[i] * a + b * e;
+  h[i] = nh;
 }
 
 function updateParticles() {
@@ -487,10 +509,11 @@ function updateParticles() {
     if (p.x < 0) { p.x = 0; p.vx = -p.vx * 0.3; } else if (p.x > W - 1) { p.x = W - 1; p.vx = -p.vx * 0.3; }
     if (p.y < 0) { p.y = 0; p.vy = -p.vy * 0.3; } else if (p.y > H - 1) { p.y = H - 1; p.vy = -p.vy * 0.3; }
     const i = (p.y | 0) * W + (p.x | 0);
+    if (p.dye && p.z <= h[i] + base[i] + wat[i]) { applyDye(p.x, p.y, p.dye); parts[n] = parts[parts.length - 1]; parts.pop(); continue; }
     if (p.w && p.z <= h[i] + base[i] + wat[i]) { landDrop(p, i); parts[n] = parts[parts.length - 1]; parts.pop(); continue; }
     if (p.z <= h[i] + base[i]) {
       const nh = h[i] + p.m;
-      if (nh < P.maxH) { c[i] = (c[i] * h[i] + p.c * p.m) / nh; h[i] = nh; }
+      if (nh < P.maxH) mixInto(i, p.m, p.c, p.kr, p.kg, p.kb);
       const share = p.m / Math.max(1, Math.min(nh, P.mobile));
       u[i] += p.vx / P.iters * share; v[i] += p.vy / P.iters * share;
       firm[i] = 0; act[i] = 1;
@@ -566,18 +589,18 @@ function plow(px, py, dirx, diry, speed) {
   }
   if (!n) return;
   const ref = sum / n;
-  let removed = 0, cm = 0;
+  let removed = 0, cm = 0, mr = 0, mg = 0, mb = 0;
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     const dx = x - px, dy = y - py, d2 = dx * dx + dy * dy;
     if (d2 >= r2) continue;
     const i = y * W + x;
     const target = ref - depth * Math.sqrt(1 - d2 / r2), surf = h[i] + base[i];
-    if (surf > target) { let rem = (surf - target) * 0.85; if (rem > h[i]) rem = h[i]; h[i] -= rem; removed += rem; cm += c[i] * rem; }
+    if (surf > target) { let rem = (surf - target) * 0.85; if (rem > h[i]) rem = h[i]; h[i] -= rem; removed += rem; cm += c[i] * rem; mr += kr[i] * rem; mg += kg[i] * rem; mb += kb[i] * rem; }
     firm[i] = 0; act[i] = 1; u[i] = 0; v[i] = 0;
     if (wet[i] > 0) wet[i] *= 0.97;
   }
   if (removed <= 0) return;
-  const tint = cm / removed;
+  const tint = cm / removed, cr = mr / removed, cg = mg / removed, cb = mb / removed;
   // a few grains get flicked into the air by a fast finger
   if (speed > 0.9 && dirx * dirx + diry * diry > 0) {
     const nfl = Math.min(8, (speed * 3) | 0);
@@ -587,7 +610,7 @@ function plow(px, py, dirx, diry, speed) {
       const sp = (0.6 + Math.random()) * speed * 1.2 / CELL * 2;
       const a = Math.atan2(diry, dirx) + (Math.random() - 0.5) * 1.2;
       spawnGrain(px + Math.cos(a) * r, py + Math.sin(a) * r, ref + 1,
-                 Math.cos(a) * sp, Math.sin(a) * sp, 1 + Math.random() * 2.2, m, tint);
+                 Math.cos(a) * sp, Math.sin(a) * sp, 1 + Math.random() * 2.2, m, tint, cr, cg, cb);
     }
   }
   // the rest is bulldozed into a bow-wave ahead of and beside the finger
@@ -605,8 +628,8 @@ function plow(px, py, dirx, diry, speed) {
   if (ws <= 0) return;
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     const w = wgt(x - px, y - py); if (!w) continue;
-    const i = y * W + x, q = removed * w / ws, nh = h[i] + q;
-    c[i] = (c[i] * h[i] + tint * q) / nh; h[i] = nh; firm[i] = 0; act[i] = 1;
+    const i = y * W + x, q = removed * w / ws;
+    mixInto(i, q, tint, cr, cg, cb); const nh = h[i]; firm[i] = 0; act[i] = 1;
     if (hasDir) { const f = Math.min(1, q / Math.max(0.5, Math.min(nh, P.mobile))); u[i] += (dirx * push - u[i]) * f; v[i] += (diry * push - v[i]) * f; }
   }
 }
@@ -775,14 +798,14 @@ function pressStamp(type, cx, cy, rot) {
   }
   if (!n) return;
   const mean = sum / n;
-  let removed = 0, cm = 0;
+  let removed = 0, cm = 0, mr = 0, mg = 0, mb = 0;
   for (let k = 0; k < S * S; k++) {
     const x = ox + (k % S), y = oy + ((k / S) | 0);
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
     const i = y * W + x, m = dep[k];
     if (m > 0.02) {
       const surf = h[i] + base[i], target = mean + (surf - mean) * 0.35 - D * m;
-      if (surf > target) { let rem = surf - target; if (rem > h[i]) rem = h[i]; removed += rem; cm += c[i] * rem; h[i] -= rem; }
+      if (surf > target) { let rem = surf - target; if (rem > h[i]) rem = h[i]; removed += rem; cm += c[i] * rem; mr += kr[i] * rem; mg += kg[i] * rem; mb += kb[i] * rem; h[i] -= rem; }
       firm[i] = Math.max(firm[i], Math.min(1, m * 1.6));
       act[i] = 0; u[i] = 0; v[i] = 0;
     } else if (near[k] > 0.02) {
@@ -801,8 +824,8 @@ function pressStamp(type, cx, cy, rot) {
     if (!rim[k]) continue;
     const x = ox + (k % S), y = oy + ((k / S) | 0);
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
-    const i = y * W + x, q = push * rim[k] / ws, nh = h[i] + q;
-    c[i] = (c[i] * h[i] + tint * q) / nh; h[i] = nh; firm[i] = 0; act[i] = 1;
+    const i = y * W + x, q = push * rim[k] / ws;
+    mixInto(i, q, tint, mr / removed, mg / removed, mb / removed); firm[i] = 0; act[i] = 1;
   }
 }
 
@@ -1138,6 +1161,138 @@ function drawHoses() {
   }
 }
 
+// ---------- the shovel: scoop here, carry, dump there ----------
+const shovels = new Map(); // pointerId -> { x, y, load, tint, r, g, b }
+const dumps = [], tipping = [];
+function scoop(cx, cy) {
+  const px = cx / CELL, py = cy / CELL, r = 19 / CELL, r2 = r * r, depth = 13 / CELL;
+  const x0 = Math.max(0, Math.floor(px - r)), x1 = Math.min(W - 1, Math.ceil(px + r));
+  const y0 = Math.max(0, Math.floor(py - r)), y1 = Math.min(H - 1, Math.ceil(py + r));
+  let sum = 0, n = 0;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const dx = x - px, dy = y - py; if (dx * dx + dy * dy < r2) { const j = y * W + x; sum += h[j] + base[j]; n++; }
+  }
+  const ld = { load: 0, tint: 1, r: 1, g: 1, b: 1 };
+  if (!n) return ld;
+  const ref = sum / n;
+  let cm = 0, mr = 0, mg = 0, mb = 0;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const dx = x - px, dy = y - py, d2 = dx * dx + dy * dy;
+    if (d2 >= r2) continue;
+    const i = y * W + x, target = ref - depth * Math.sqrt(1 - d2 / r2), surf = h[i] + base[i];
+    if (surf > target) {
+      let rem = surf - target; if (rem > h[i]) rem = h[i];
+      h[i] -= rem; ld.load += rem; cm += c[i] * rem; mr += kr[i] * rem; mg += kg[i] * rem; mb += kb[i] * rem;
+    }
+    firm[i] = 0; act[i] = 1; u[i] = 0; v[i] = 0;
+  }
+  if (ld.load > 0) { ld.tint = cm / ld.load; ld.r = mr / ld.load; ld.g = mg / ld.load; ld.b = mb / ld.load; }
+  return ld;
+}
+function dumpShovel(sh) {
+  if (sh.load > 0.01) dumps.push({ x: sh.x / CELL, y: sh.y / CELL, left: sh.load, tint: sh.tint, r: sh.r, g: sh.g, b: sh.b });
+  tipping.push({ ...sh, t0: performance.now() });
+}
+function dumpStep() {
+  for (let n = dumps.length - 1; n >= 0; n--) {
+    const d = dumps[n];
+    for (let k = 0; k < 70 && d.left > 0 && parts.length < MAXP - 10; k++) {
+      const m = Math.min(0.5, d.left); d.left -= m;
+      const a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()) * 9 / CELL;
+      const x = Math.max(0, Math.min(W - 1, d.x + Math.cos(a) * rr)), y = Math.max(0, Math.min(H - 1, d.y + Math.sin(a) * rr));
+      const j = (y | 0) * W + (x | 0);
+      spawnGrain(x, y, h[j] + base[j] + 10 + Math.random() * 12, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15, -0.4, m,
+                 d.tint * (0.94 + Math.random() * 0.12), d.r, d.g, d.b);
+    }
+    if (d.left <= 0) dumps.splice(n, 1);
+  }
+  return dumps.length;
+}
+function sandCss(tint, r, g, b, lum) {
+  const v = tint * lum;
+  return `rgb(${Math.min(255, 228 * v * r) | 0},${Math.min(255, 197 * v * g) | 0},${Math.min(255, 148 * v * b) | 0})`;
+}
+function drawShovel(x, y, rot, load, sh, scale) {
+  const U = 30 * scale;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(U, U);
+  ctx.lineJoin = 'round';
+  // shadow
+  ctx.save(); ctx.translate(0.35, 0.45); ctx.fillStyle = 'rgba(60,35,10,0.22)';
+  ctx.beginPath(); ctx.ellipse(0, 0.6, 0.55, 1.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  // handle
+  ctx.fillStyle = '#c9732f'; ctx.fillRect(-0.08, 0.55, 0.16, 1.35);
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(-0.05, 0.6, 0.04, 1.25);
+  ctx.fillStyle = '#e53935'; ctx.beginPath(); ctx.ellipse(0, 1.95, 0.26, 0.13, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#7d8a96'; ctx.fillRect(-0.1, 0.35, 0.2, 0.3);
+  // blade
+  const blade = () => { ctx.beginPath(); ctx.moveTo(-0.5, -0.2); ctx.quadraticCurveTo(-0.5, -0.82, 0, -0.98); ctx.quadraticCurveTo(0.5, -0.82, 0.5, -0.2);
+    ctx.lineTo(0.5, 0.3); ctx.quadraticCurveTo(0, 0.48, -0.5, 0.3); ctx.closePath(); };
+  const gr = ctx.createLinearGradient(-0.5, -1, 0.5, 0.4); gr.addColorStop(0, '#eef3f7'); gr.addColorStop(1, '#9fadb9');
+  blade(); ctx.fillStyle = gr; ctx.fill(); ctx.lineWidth = 0.07; ctx.strokeStyle = '#6f7d89'; ctx.stroke();
+  if (load > 0.01) { // the heap of sand on the shovel
+    const s2 = Math.min(1, 0.45 + load / 900);
+    ctx.fillStyle = sandCss(sh.tint, sh.r, sh.g, sh.b, 0.9);
+    ctx.beginPath(); ctx.ellipse(0, -0.28, 0.42 * s2, 0.55 * s2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = sandCss(sh.tint, sh.r, sh.g, sh.b, 1.08);
+    ctx.beginPath(); ctx.ellipse(-0.1, -0.42, 0.2 * s2, 0.26 * s2, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawShovels(now) {
+  for (const sh of shovels.values()) drawShovel(sh.x, sh.y, -0.6, sh.load, sh, 1.08);
+  for (let n = tipping.length - 1; n >= 0; n--) {
+    const t = (now - tipping[n].t0) / 380;
+    if (t >= 1) { tipping.splice(n, 1); continue; }
+    const sh = tipping[n];
+    ctx.globalAlpha = t < 0.6 ? 1 : (1 - t) / 0.4;
+    drawShovel(sh.x, sh.y, -0.6 + 1.1 * Math.sin(t * Math.PI / 2), sh.load * Math.max(0, 1 - t * 3), sh, 1.08 + 0.1 * t);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ---------- coloured dye: squirts that stain the grains they land on ----------
+const DYES = [
+  { id: 'red', rgb: [236, 64, 64] }, { id: 'orange', rgb: [250, 146, 40] }, { id: 'yellow', rgb: [250, 222, 50] },
+  { id: 'green', rgb: [70, 196, 84] }, { id: 'blue', rgb: [60, 136, 240] }, { id: 'purple', rgb: [160, 90, 225] },
+  { id: 'pink', rgb: [250, 112, 192] }, { id: 'rainbow', rgb: null },
+];
+let dyeId = 'blue';
+function hsl2rgb(hh, ss, ll) {
+  const k = n => (n + hh / 30) % 12, a = ss * Math.min(ll, 1 - ll);
+  const f = n => ll - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+  return [f(0) * 255, f(8) * 255, f(4) * 255];
+}
+function dyeColour(now) {
+  const d = DYES.find(x => x.id === dyeId) || DYES[0];
+  return d.rgb || hsl2rgb((now / 8) % 360, 0.85, 0.58);
+}
+function applyDye(x, y, k) {
+  const R = 2.8, x0 = Math.max(0, Math.floor(x - R)), x1 = Math.min(W - 1, Math.ceil(x + R));
+  const y0 = Math.max(0, Math.floor(y - R)), y1 = Math.min(H - 1, Math.ceil(y + R));
+  for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) {
+    const d = Math.hypot(xx - x, yy - y); if (d >= R) continue;
+    const i = yy * W + xx, f = 0.32 * (1 - d / R);
+    kr[i] += (k[0] - kr[i]) * f; kg[i] += (k[1] - kg[i]) * f; kb[i] += (k[2] - kb[i]) * f;
+    if (wet[i] < 0.35) wet[i] = 0.35;
+  }
+  wetActive = true; dyeUsed = true;
+}
+function dyeStep(now) {
+  let n = 0;
+  for (const p of pointers.values()) {
+    if (p.tool !== 'dye') continue; n++;
+    const rgb = dyeColour(now), css = `rgb(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0})`;
+    const k = [rgb[0] / (228 * 0.95), rgb[1] / (197 * 0.95), rgb[2] / (148 * 0.95)];
+    for (let q = 0; q < 16 && parts.length < MAXP; q++) {
+      const a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()) * 11 / CELL;
+      const x = Math.max(0, Math.min(W - 1, p.x / CELL + Math.cos(a) * rr)), y = Math.max(0, Math.min(H - 1, p.y / CELL + Math.sin(a) * rr));
+      const j = (y | 0) * W + (x | 0);
+      parts.push({ x, y, z: h[j] + base[j] + 5 + Math.random() * 6, vx: 0, vy: 0, vz: -0.4, m: 0, c: 1, dye: k, css });
+    }
+  }
+  return n;
+}
+
 // ---------- the wave (smooth + re-level) ----------
 let wave = null;
 function startWave() {
@@ -1158,13 +1313,15 @@ function stepWave() {
     for (let x = 0, i = y * W; x < W; x++, i++) {
       const tgt = m - base[i];
       h[i] += ((tgt > 0 ? tgt : 0) - h[i]) * f; firm[i] *= 0.8; act[i] = 0; u[i] = 0; v[i] = 0; wat[i] *= 0.8;
+      kr[i] += (1 - kr[i]) * f; kg[i] += (1 - kg[i]) * f; kb[i] += (1 - kb[i]) * f; // the sea washes the colours out
       if (wet[i] < 1) wet[i] = Math.min(1, wet[i] + 0.12);
     }
   }
   wetActive = true;
   if (t > dur + 600) {
     placeObjects(); // new dinosaurs to find!
-    for (let i = 0; i < N; i++) { firm[i] = 0; h[i] = coverOver(i, m - base[i]); wat[i] = 0; }
+    for (let i = 0; i < N; i++) { firm[i] = 0; h[i] = coverOver(i, m - base[i]); wat[i] = 0; kr[i] = kg[i] = kb[i] = 1; }
+    dyeUsed = false;
     waterTotal = 0;
     wave = null;
   }
@@ -1219,7 +1376,7 @@ function render(now) {
       const hh = h[i], w = wet[i];
       let lum = (0.3 + 0.92 * s) * (1 - 0.3 * shade) * c[i] * (1 - 0.22 * w);
       if (hh < 5) lum *= 0.84 + 0.032 * hh; // deeper sand is damper and darker
-      let r = sandR * lum, g = sandG * lum * (1 - 0.03 * w), b = sandB * lum * (1 + 0.06 * w);
+      let r = sandR * lum * kr[i], g = sandG * lum * kg[i] * (1 - 0.03 * w), b = sandB * lum * kb[i] * (1 + 0.06 * w);
       let alpha = 255;
       if (objId[i]) { // a buried toy shows through thin sand
         const t = (hh - 0.3) / 1.9; alpha = t <= 0 ? 0 : t >= 1 ? 255 : 255 * t * t;
@@ -1264,8 +1421,9 @@ function render(now) {
     for (const p of parts) {
       const sz = 1.8 + Math.max(0, p.z) * 0.03;
       if (p.w) { ctx.fillStyle = 'rgba(190,230,255,0.9)'; ctx.fillRect(p.x * CELL - sz / 2, p.y * CELL - sz / 2, sz + 0.6, sz + 0.6); continue; }
-      const v = p.c * 240 | 0;
-      ctx.fillStyle = `rgb(${v},${v * 0.86 | 0},${v * 0.64 | 0})`;
+      if (p.dye) { ctx.fillStyle = p.css; ctx.fillRect(p.x * CELL - sz / 2, p.y * CELL - sz / 2, sz + 0.8, sz + 0.8); continue; }
+      const v = p.c * 240;
+      ctx.fillStyle = `rgb(${Math.min(255, v * p.kr) | 0},${Math.min(255, v * 0.86 * p.kg) | 0},${Math.min(255, v * 0.64 * p.kb) | 0})`;
       ctx.fillRect(p.x * CELL - sz / 2, p.y * CELL - sz / 2, sz, sz);
     }
   }
@@ -1273,6 +1431,7 @@ function render(now) {
   drawFinds(now);
   drawAnims(now);
   drawHoses();
+  drawShovels(now);
   drawCarries(now);
 }
 
@@ -1353,6 +1512,13 @@ const sound = (() => {
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
       o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.2);
     },
+    scoop() {
+      if (!a || muted) return; const t = a.currentTime;
+      const s = a.createBufferSource(); s.buffer = noise;
+      const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 800; f.Q.value = 0.9;
+      const g = a.createGain(); g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+      s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()); s.stop(t + 0.3);
+    },
     setMuted(m) { muted = m; if (master) master.gain.value = muted ? 0 : 0.9; },
     suspend() { if (a && a.state === 'running') a.suspend(); },
     resume() { if (a && a.state === 'suspended') a.resume(); },
@@ -1373,6 +1539,7 @@ cv.addEventListener('pointerdown', e => {
   const [x, y] = localXY(e);
   pointers.set(e.pointerId, { x, y, t: performance.now(), tool });
   if (tool === 'stamp') pickUpStamp(e.pointerId, stampType, x, y);
+  else if (tool === 'shovel') { shovels.set(e.pointerId, { x, y, ...scoop(x, y) }); sound.scoop(); }
   else if (tool === 'hand') plow(x / CELL, y / CELL, 0, 0, 0);
 });
 
@@ -1401,14 +1568,21 @@ function endPointer(e) { pointers.delete(e.pointerId); }
 
 // carried stamps follow the finger anywhere (including straight off a toolbar button)
 window.addEventListener('pointermove', e => {
+  const sh = shovels.get(e.pointerId);
+  if (sh) { const [x, y] = localXY(e); sh.x = Math.max(0, Math.min(cssW, x)); sh.y = Math.max(0, Math.min(cssH, y)); }
   if (!carries.size || !carries.has(e.pointerId)) return;
   const [x, y] = localXY(e); moveStamp(e.pointerId, x, y);
 });
+function liftShovel(e) {
+  const sh = shovels.get(e.pointerId); if (!sh) return;
+  shovels.delete(e.pointerId); dumpShovel(sh);
+}
 window.addEventListener('pointerup', e => {
+  liftShovel(e);
   if (!carries.has(e.pointerId)) return;
   const [x, y] = localXY(e); moveStamp(e.pointerId, x, y); dropStamp(e.pointerId, true);
 });
-window.addEventListener('pointercancel', e => dropStamp(e.pointerId, false));
+window.addEventListener('pointercancel', e => { liftShovel(e); dropStamp(e.pointerId, false); });
 cv.addEventListener('pointerup', endPointer);
 cv.addEventListener('pointercancel', endPointer);
 cv.addEventListener('lostpointercapture', endPointer);
@@ -1433,7 +1607,7 @@ function pourStep() {
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 // ---------- toolbar ----------
-const toolsRow = document.getElementById('tools'), stampsRow = document.getElementById('stamps');
+const toolsRow = document.getElementById('tools'), stampsRow = document.getElementById('stamps'), dyesRow = document.getElementById('dyes');
 const buttons = [];
 
 function mkBtn(row, content, label, onPress, cls) {
@@ -1443,11 +1617,23 @@ function mkBtn(row, content, label, onPress, cls) {
   b.addEventListener('pointerdown', e => { e.preventDefault(); sound.init(); onPress(b, e); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); });
   row.appendChild(b); buttons.push(b); return b;
 }
-function select(b) { buttons.forEach(x => { if (x.parentElement !== stampsRow) x.classList.toggle('sel', x === b); }); }
+function select(b) { buttons.forEach(x => { if (!x.parentElement.classList.contains('popup')) x.classList.toggle('sel', x === b); }); }
 
-const closeStamps = () => stampsRow.classList.remove('open');
+const closeStamps = () => { stampsRow.classList.remove('open'); dyesRow.classList.remove('open'); };
 const handBtn = mkBtn(toolsRow, '✋', 'Dig with your finger', b => { tool = 'hand'; select(b); closeStamps(); });
 mkBtn(toolsRow, '🪣', 'Pour sand', b => { tool = 'pour'; select(b); closeStamps(); });
+{
+  const ic = document.createElement('canvas'); ic.width = ic.height = 128;
+  const g = ic.getContext('2d'); g.translate(58, 70); g.rotate(0.65); g.scale(1, 1);
+  // handle
+  g.fillStyle = '#c9732f'; g.fillRect(-5, 18, 10, 46); g.fillStyle = '#e53935'; g.beginPath(); g.ellipse(0, 66, 15, 8, 0, 0, Math.PI * 2); g.fill();
+  // blade with sand
+  g.beginPath(); g.moveTo(-26, -8); g.quadraticCurveTo(-26, -44, 0, -52); g.quadraticCurveTo(26, -44, 26, -8); g.lineTo(26, 14); g.quadraticCurveTo(0, 24, -26, 14); g.closePath();
+  g.fillStyle = '#c5d0da'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#6f7d89'; g.stroke();
+  g.fillStyle = '#e2bf86'; g.beginPath(); g.ellipse(0, -14, 19, 24, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#f0d4a2'; g.beginPath(); g.ellipse(-5, -22, 9, 11, 0, 0, Math.PI * 2); g.fill();
+  mkBtn(toolsRow, ic, 'Shovel: scoop sand and move it', b => { tool = 'shovel'; select(b); closeStamps(); });
+}
 {
   const ic = document.createElement('canvas'); ic.width = ic.height = 128;
   const g = ic.getContext('2d'); g.lineCap = 'round';
@@ -1460,6 +1646,28 @@ mkBtn(toolsRow, '🪣', 'Pour sand', b => { tool = 'pour'; select(b); closeStamp
   for (const [x, y, r] of [[98, 22, 7], [114, 12, 5], [108, 36, 6], [120, 28, 4]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
   mkBtn(toolsRow, ic, 'Spray water with the hose', b => { tool = 'hose'; select(b); closeStamps(); });
 }
+// the dye bottle: one button shows the current colour; pressing it pops the colours open
+function drawDrop(g, id) {
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 128, 128);
+  g.beginPath(); g.moveTo(64, 10); g.quadraticCurveTo(106, 62, 106, 82); g.arc(64, 82, 42, 0, Math.PI); g.quadraticCurveTo(22, 62, 64, 10); g.closePath();
+  const d = DYES.find(x => x.id === id);
+  if (d.rgb) g.fillStyle = `rgb(${d.rgb})`;
+  else { const gr = g.createLinearGradient(22, 20, 106, 124); ['#ff4d4d', '#ffa53a', '#ffe14a', '#4cc95a', '#3f8cf0', '#a35de6'].forEach((col, k) => gr.addColorStop(k / 5, col)); g.fillStyle = gr; }
+  g.fill(); g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,0.18)'; g.stroke();
+  g.fillStyle = 'rgba(255,255,255,0.55)'; g.beginPath(); g.ellipse(48, 74, 9, 16, 0.35, 0, Math.PI * 2); g.fill();
+}
+const dyeIcon = document.createElement('canvas'); dyeIcon.width = dyeIcon.height = 128;
+drawDrop(dyeIcon.getContext('2d'), dyeId);
+const dyeBtn = mkBtn(toolsRow, dyeIcon, 'Colour dye', b => { tool = 'dye'; select(b); stampsRow.classList.remove('open'); dyesRow.classList.toggle('open'); });
+for (const d of DYES) {
+  const ic = document.createElement('canvas'); ic.width = ic.height = 128; drawDrop(ic.getContext('2d'), d.id);
+  const db = mkBtn(dyesRow, ic, d.id + ' dye', b => {
+    tool = 'dye'; dyeId = d.id; select(dyeBtn); drawDrop(dyeIcon.getContext('2d'), d.id);
+    dyesRow.querySelectorAll('.btn').forEach(x => x.classList.toggle('sel', x === b));
+    setTimeout(closeStamps, 150);
+  });
+  if (d.id === dyeId) db.classList.add('sel');
+}
 // one stamp button shows the current stamp; pressing it pops the stamp choices open
 const stampIcon = document.createElement('canvas'); stampIcon.width = stampIcon.height = 128;
 function drawStampIcon() {
@@ -1467,7 +1675,7 @@ function drawStampIcon() {
   g.translate(64, 64); g.scale(54, 54); drawShape(g, stampType, PAL[stampType]);
 }
 drawStampIcon();
-const stampBtn = mkBtn(toolsRow, stampIcon, 'Stamps', b => { tool = 'stamp'; select(b); stampsRow.classList.toggle('open'); });
+const stampBtn = mkBtn(toolsRow, stampIcon, 'Stamps', b => { tool = 'stamp'; select(b); dyesRow.classList.remove('open'); stampsRow.classList.toggle('open'); });
 mkBtn(toolsRow, '🌊', 'Smooth the sand', b => { startWave(); closeStamps(); }, 'action');
 
 for (const t of STAMPS) {
@@ -1553,6 +1761,8 @@ function frame(now) {
   }
   const pouring = pourStep();
   const spraying = hoseStep();
+  const dyeing = dyeStep(now);
+  const dumping = dumpStep();
   stepWave();
   flowThisFrame = 0;
   const t0 = performance.now();
@@ -1566,7 +1776,7 @@ function frame(now) {
   checkFinds(now);
   render(now);
   scrapeLvl = scrapeLvl * 0.6 + Math.min(0.55, fingerTravel / 60) * 0.4; fingerTravel = 0;
-  sound.levels(scrapeLvl, pouring ? 0.22 : 0, Math.min(0.4, flowThisFrame / (N * 0.004)), spraying ? 0.2 : 0);
+  sound.levels(scrapeLvl, (pouring || dumping) ? 0.22 : 0, Math.min(0.4, flowThisFrame / (N * 0.004)), spraying ? 0.2 : dyeing ? 0.07 : 0);
 }
 
 resize();

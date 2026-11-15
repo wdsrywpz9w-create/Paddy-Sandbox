@@ -8,6 +8,8 @@ A phone-browser sand tray for toddlers. No install, no ads, no text to read. It 
 | --- | --- |
 | ✋ | Drag a finger through the sand. It digs a groove and pushes a ridge of sand ahead of it. Flick fast and grains fly. |
 | 🪣 | Hold a finger down to pour a stream of sand that builds a cone-shaped pile. |
+| Shovel | Press to scoop up a shovelful of sand (leaving a hole), drag the loaded shovel anywhere, and let go to tip it out into a new pile. |
+| Dye drop | Opens a palette of colours (red, orange, yellow, green, blue, purple, pink and rainbow). Rub a finger on the sand to squirt coloured dye that stains the grains. Dyed sand keeps its colour when it slides, gets dug, stamped or shovelled. The 🌊 wave washes the colours out. |
 | Hose (green coil) | Hold a finger down to spray water just above it. The jet blasts out a crater, the water pools in hollows, runs downhill (tilt the phone to slosh it), carves little channels and slowly soaks in, leaving dark wet sand. |
 | 🌊 | A wave washes over the tray, leaves it flat and wet, buries a new set of dinosaurs, and re-levels the tilt (see below). |
 | 🐢 (stamp button) | Opens the six stamps (🐢 ⭐ 🐚 🐟 🦀 ❤️). Drag a stamp off its button onto the sand, or pick one and touch the sand. The stamp lifts up and follows the finger, then presses in where the finger lets go. |
@@ -23,7 +25,7 @@ Five toys are buried under the sand each round: four dinosaurs (T-rex, tricerato
 The tray is a grid of sand columns (one cell ≈ 2 screen pixels). Each column stores:
 
 - **height**: how much sand is there
-- **grain tint**: carried along with the sand, so you can see the grains move
+- **grain tint and dye colour**: carried along with the sand, so you can see the grains move and coloured sand stays coloured wherever it goes
 - **firmness**: sand pressed by a stamp is compacted, so imprints keep sharp walls until loose sand slides over them
 - **wetness**: wet sand looks darker, holds steeper slopes and dries over about 20 seconds
 - **water depth**: standing or running water on top of the sand
