@@ -135,15 +135,17 @@ const P = {
   tiltGain: 2.4,  // makes ~20° of tilt enough to start sand sliding
   iters: 3,       // physics passes per frame
   G: 0.13,        // gravity pull on moving sand (cells / pass²)
-  mobile: 3.0,    // thickness of the surface layer that can flow
-  vmax: 0.8,      // top flow speed (cells / pass)
+  mobile: 1.8,    // thickness of the surface layer that can flow
+  vmax: 1.0,      // top flow speed (cells / pass)
   maxH: 90,
 };
 
 let W = 0, H = 0, N = 0, CELL = 2, cssW = 0, cssH = 0, DPR = 1;
 let h, c, dh, cin, outm, act, firm, wet, thr, img, img32;
 let u, v, pu, pv, qin, sh; // flow velocity, incoming momentum, shadow height
-let FINGER_R = 16, STAMP_R = 60;
+let base, objId, sf, wat, dw, dsand; // buried-toy floor height, toy id per cell, surface, water
+let waterTotal = 0;
+let FINGER_R = 16, STAMP_R = 60, OBJ_R = 56;
 let wetActive = false;
 
 // ---------- grid setup ----------
@@ -155,13 +157,13 @@ function makeArrays(n) {
 
 function freshSand() {
   const p1 = Math.random() * 6, p2 = Math.random() * 6, p3 = Math.random() * 6;
-  const base = 22 / CELL;
+  const base = 15 / CELL;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x, X = x * CELL, Y = y * CELL;
     const dune = Math.sin(X * 0.018 + p1) * Math.sin(Y * 0.014 + p2) * 1.0
                + Math.sin((X + Y) * 0.031 + p3) * 0.45
                + Math.sin(X * 0.06 - Y * 0.045 + p1) * 0.2;
-    h[i] = base + dune * (6 / CELL);
+    h[i] = base + dune * (4 / CELL);
     c[i] = grainTint();
     firm[i] = 0; wet[i] = 0;
   }
@@ -199,13 +201,19 @@ function resize() {
   thr = new Float32Array(N); act = new Uint8Array(N);
   u = new Float32Array(N); v = new Float32Array(N); pu = new Float32Array(N); pv = new Float32Array(N);
   qin = new Float32Array(N); sh = new Float32Array(N);
+  base = new Float32Array(N); objId = new Uint8Array(N); sf = new Float32Array(N);
+  wat = new Float32Array(N); dw = new Float32Array(N); dsand = new Float32Array(N); waterTotal = 0;
   small.width = W; small.height = H;
   img = sctx.createImageData(W, H);
   img32 = new Uint32Array(img.data.buffer);
   FINGER_R = Math.max(13, Math.min(22, nw * 0.045));
   STAMP_R = Math.max(42, Math.min(92, Math.min(nw, nh) * 0.17));
   if (!hadSand) freshSand();
+  OBJ_R = STAMP_R * 0.95;
   buildStampSprites();
+  buildObjSprites();
+  if (!hadSand) { placeObjects(); for (let i = 0; i < N; i++) h[i] = coverOver(i, h[i] - base[i]); }
+  else rasterizeObjects();
   makeGrain();
 }
 
@@ -221,18 +229,23 @@ function relax(tx, ty, agit) {
   const n = N, w = W, hgt = H;
   const soft = 1 - 0.75 * agit;
   const T = P.T * soft, Td = P.Td * soft, COH = P.COH * soft, WC = P.WETC;
-  for (let i = 0; i < n; i++) thr_[i] = (act_[i] ? Td : T) + firm_[i] * COH + wet_[i] * WC;
+  const sf_ = sf, b_ = base, wt_ = wat;
+  for (let i = 0; i < n; i++) {
+    sf_[i] = h_[i] + b_[i];
+    const wa = wt_[i]; // sand under standing water is saturated and slumps
+    thr_[i] = (act_[i] ? Td : T) + firm_[i] * COH + wet_[i] * WC - (wa > 0.3 ? 0.3 : wa);
+  }
   dh_.fill(0); cin_.fill(0); outm_.fill(0);
   const k = P.k, kd = P.k * 0.7, S2 = Math.SQRT2, dse = tx + ty, dsw = ty - tx;
   let flow = 0;
   const mv = (i, j, d, ti, tj, kk) => {
     let q;
     if (d > ti) {
-      q = (d - ti) * kk; const cap = h_[i] * 0.06; if (q > cap) q = cap;
+      q = (d - ti) * kk; const cap = h_[i] * 0.05; if (q > cap) q = cap;
       if (q < 1e-4) return;
       dh_[i] -= q; dh_[j] += q; outm_[i] += q; cin_[j] += c_[i] * q; flow += q;
     } else if (d < -tj) {
-      q = (-d - tj) * kk; const cap = h_[j] * 0.06; if (q > cap) q = cap;
+      q = (-d - tj) * kk; const cap = h_[j] * 0.05; if (q > cap) q = cap;
       if (q < 1e-4) return;
       dh_[j] -= q; dh_[i] += q; outm_[j] += q; cin_[i] += c_[j] * q; flow += q;
     }
@@ -241,13 +254,13 @@ function relax(tx, ty, agit) {
   for (let y = 0; y < hgt; y++) {
     const row = y * w, notLast = y < hgt - 1;
     for (let x = 0; x < w; x++) {
-      const i = row + x, hi = h_[i], ti = thr_[i];
-      if (x < Wm) mv(i, i + 1, hi - h_[i + 1] + tx, ti, thr_[i + 1], k);
+      const i = row + x, hi = sf_[i], ti = thr_[i];
+      if (x < Wm) mv(i, i + 1, hi - sf_[i + 1] + tx, ti, thr_[i + 1], k);
       if (notLast) {
         const j = i + w;
-        mv(i, j, hi - h_[j] + ty, ti, thr_[j], k);
-        if (x < Wm) mv(i, j + 1, hi - h_[j + 1] + dse, ti * S2, thr_[j + 1] * S2, kd);
-        if (x > 0) mv(i, j - 1, hi - h_[j - 1] + dsw, ti * S2, thr_[j - 1] * S2, kd);
+        mv(i, j, hi - sf_[j] + ty, ti, thr_[j], k);
+        if (x < Wm) mv(i, j + 1, hi - sf_[j + 1] + dse, ti * S2, thr_[j + 1] * S2, kd);
+        if (x > 0) mv(i, j - 1, hi - sf_[j - 1] + dsw, ti * S2, thr_[j - 1] * S2, kd);
       }
     }
   }
@@ -264,7 +277,7 @@ function relax(tx, ty, agit) {
       let ui = u_[i], vi = v_[i];
       if (hi < 0.03) { u_[i] = v_[i] = 0; continue; }
       const lf = x > 0 ? -1 : 0, rt = x < Wm ? 1 : 0, gxk = (lf && rt) ? 0.5 : 1;
-      const sx = tx - (h_[i + rt] - h_[i + lf]) * gxk, sy = ty - (h_[i + dn] - h_[i + up]) * gyk;
+      const sx = tx - (sf_[i + rt] - sf_[i + lf]) * gxk, sy = ty - (sf_[i + dn] - sf_[i + up]) * gyk;
       const mu = thr_[i];
       const sp = Math.sqrt(ui * ui + vi * vi);
       if (sp > 1e-3) {
@@ -304,6 +317,19 @@ function relax(tx, ty, agit) {
     if (inflow > 0.003 && firm_[i] > 0) { const f = 1 - inflow * 0.35; firm_[i] *= f > 0 ? f : 0; }
   }
   flowThisFrame += flow;
+}
+
+// a touch of viscosity in the flowing layer keeps neighbouring grains moving together
+function smoothVel() {
+  const u_ = u, v_ = v, tu = pu, tv = pv, w = W, hgt = H;
+  tu.set(u_); tv.set(v_);
+  for (let y = 1; y < hgt - 1; y++) {
+    for (let x = 1, i = y * w + 1; x < w - 1; x++, i++) {
+      if (tu[i] === 0 && tv[i] === 0) continue;
+      u_[i] = tu[i] * 0.4 + (tu[i - 1] + tu[i + 1] + tu[i - w] + tu[i + w]) * 0.15;
+      v_[i] = tv[i] * 0.4 + (tv[i - 1] + tv[i + 1] + tv[i - w] + tv[i + w]) * 0.15;
+    }
+  }
 }
 
 // ---------- tilt, shake ----------
@@ -392,7 +418,8 @@ function updateParticles() {
     if (p.x < 0) { p.x = 0; p.vx = -p.vx * 0.3; } else if (p.x > W - 1) { p.x = W - 1; p.vx = -p.vx * 0.3; }
     if (p.y < 0) { p.y = 0; p.vy = -p.vy * 0.3; } else if (p.y > H - 1) { p.y = H - 1; p.vy = -p.vy * 0.3; }
     const i = (p.y | 0) * W + (p.x | 0);
-    if (p.z <= h[i]) {
+    if (p.w && p.z <= h[i] + base[i] + wat[i]) { landDrop(p, i); parts[n] = parts[parts.length - 1]; parts.pop(); continue; }
+    if (p.z <= h[i] + base[i]) {
       const nh = h[i] + p.m;
       if (nh < P.maxH) { c[i] = (c[i] * h[i] + p.c * p.m) / nh; h[i] = nh; }
       const share = p.m / Math.max(1, Math.min(nh, P.mobile));
@@ -403,15 +430,70 @@ function updateParticles() {
   }
 }
 
+function spawnDrop(x, y, z, vx, vy, vz, m) {
+  if (parts.length >= MAXP) return;
+  parts.push({ x, y, z, vx, vy, vz, m, c: 1, w: 1 });
+}
+function landDrop(p, i) {
+  wat[i] += p.m; waterTotal += p.m;
+  wet[i] = 1; wetActive = true; firm[i] *= 0.6; act[i] = 1;
+  if (h[i] > 0.05 && wat[i] < 2) { // the jet blasts sand out of a crater (deep water cushions it)
+    const e = Math.min(h[i], 0.06 * (1 - wat[i] * 0.4));
+    const a = Math.atan2(p.vy, p.vx) + (Math.random() - 0.5) * 2.2, d = 2 + Math.random() * 4;
+    const x = Math.round(p.x + Math.cos(a) * d), y = Math.round(p.y + Math.sin(a) * d);
+    if (x >= 0 && y >= 0 && x < W && y < H) { const j = y * W + x; h[i] -= e; h[j] += e; act[j] = 1; firm[j] = 0; }
+  }
+}
+
+// ---------- water: shallow flow over the sand, erosion, soaking in ----------
+function waterStep(tx, ty) {
+  if (waterTotal <= 0.001) { waterTotal = 0; return; }
+  const w_ = wat, d_ = dw, s_ = dsand, h_ = h, b_ = base, n = N, w = W, hgt = H;
+  d_.fill(0); s_.fill(0);
+  const KW = 0.2, KE = 0.07, twx = tx * 0.5, twy = ty * 0.5;
+  const pair = (i, j, dd) => {
+    if (dd > 0) {
+      let q = dd * KW; const cap = w_[i] * 0.24; if (q > cap) q = cap; if (q < 1e-5) return;
+      d_[i] -= q; d_[j] += q;
+      let e = q * KE * (dd < 1.5 ? dd : 1.5); const ca = h_[i] * 0.04; if (e > ca) e = ca;
+      if (e > 1e-5) { s_[i] -= e; s_[j] += e; }
+    } else if (dd < 0) {
+      let q = -dd * KW; const cap = w_[j] * 0.24; if (q > cap) q = cap; if (q < 1e-5) return;
+      d_[j] -= q; d_[i] += q;
+      let e = q * KE * (-dd < 1.5 ? -dd : 1.5); const ca = h_[j] * 0.04; if (e > ca) e = ca;
+      if (e > 1e-5) { s_[j] -= e; s_[i] += e; }
+    }
+  };
+  for (let y = 0; y < hgt; y++) {
+    const row = y * w, notLast = y < hgt - 1;
+    for (let x = 0; x < w; x++) {
+      const i = row + x, wi = w_[i];
+      const Hi = h_[i] + b_[i] + wi;
+      if (x < w - 1) { const j = i + 1; if (wi > 0 || w_[j] > 0) pair(i, j, Hi - (h_[j] + b_[j] + w_[j]) + twx); }
+      if (notLast) { const j = i + w; if (wi > 0 || w_[j] > 0) pair(i, j, Hi - (h_[j] + b_[j] + w_[j]) + twy); }
+    }
+  }
+  let tot = 0;
+  for (let i = 0; i < n; i++) {
+    let wv = w_[i] + d_[i];
+    if (wv > 0) { const soak = wv < 0.0006 ? wv : 0.0006; wv -= soak; wet[i] = 1; } // soaks into the sand
+    w_[i] = wv > 0 ? wv : 0; tot += w_[i];
+    const sd = s_[i];
+    if (sd !== 0) { h_[i] += sd; if (h_[i] < 0) h_[i] = 0; firm[i] *= 0.9; act[i] = 1; }
+  }
+  waterTotal = tot;
+  if (tot > 0) wetActive = true;
+}
+
 // ---------- finger: plowing through sand ----------
 function plow(px, py, dirx, diry, speed) {
-  const r = FINGER_R / CELL, r2 = r * r, R = r * 1.95;
-  const depth = 9 / CELL;
+  const r = FINGER_R / CELL, r2 = r * r, R = r * 2.2;
+  const depth = 15 / CELL;
   const x0 = Math.max(0, Math.floor(px - R)), x1 = Math.min(W - 1, Math.ceil(px + R));
   const y0 = Math.max(0, Math.floor(py - R)), y1 = Math.min(H - 1, Math.ceil(py + R));
   let sum = 0, n = 0;
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    const dx = x - px, dy = y - py; if (dx * dx + dy * dy < r2) { sum += h[y * W + x]; n++; }
+    const dx = x - px, dy = y - py; if (dx * dx + dy * dy < r2) { const j = y * W + x; sum += h[j] + base[j]; n++; }
   }
   if (!n) return;
   const ref = sum / n;
@@ -420,9 +502,8 @@ function plow(px, py, dirx, diry, speed) {
     const dx = x - px, dy = y - py, d2 = dx * dx + dy * dy;
     if (d2 >= r2) continue;
     const i = y * W + x;
-    let target = ref - depth * Math.sqrt(1 - d2 / r2);
-    if (target < 0) target = 0;
-    if (h[i] > target) { const rem = (h[i] - target) * 0.5; h[i] -= rem; removed += rem; cm += c[i] * rem; }
+    const target = ref - depth * Math.sqrt(1 - d2 / r2), surf = h[i] + base[i];
+    if (surf > target) { let rem = (surf - target) * 0.85; if (rem > h[i]) rem = h[i]; h[i] -= rem; removed += rem; cm += c[i] * rem; }
     firm[i] = 0; act[i] = 1; u[i] = 0; v[i] = 0;
     if (wet[i] > 0) wet[i] *= 0.97;
   }
@@ -446,8 +527,8 @@ function plow(px, py, dirx, diry, speed) {
   const wgt = (dx, dy) => {
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d < r * 0.85 || d > R) return 0;
-    let w = 1 - Math.abs(d - r * 1.35) / (r * 0.6); if (w <= 0) return 0;
-    if (hasDir) { const f = (dx * dirx + dy * diry) / d + 0.35; w *= f > 0 ? f : 0; }
+    let w = 1 - Math.abs(d - r * 1.5) / (r * 0.7); if (w <= 0) return 0;
+    if (hasDir) { const f = (dx * dirx + dy * diry) / d + 0.1; w *= f > 0 ? f * f : 0; } // mostly shoved ahead, a little to the sides
     return w;
   };
   let ws = 0;
@@ -621,7 +702,7 @@ function pressStamp(type, cx, cy, rot) {
     if (dep[k] < 0.5) continue;
     const x = ox + (k % S), y = oy + ((k / S) | 0);
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
-    sum += h[y * W + x]; n++;
+    sum += h[y * W + x] + base[y * W + x]; n++;
   }
   if (!n) return;
   const mean = sum / n;
@@ -631,9 +712,8 @@ function pressStamp(type, cx, cy, rot) {
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
     const i = y * W + x, m = dep[k];
     if (m > 0.02) {
-      let target = mean + (h[i] - mean) * 0.35 - D * m;
-      if (target < 0) target = 0;
-      if (h[i] > target) { const rem = h[i] - target; removed += rem; cm += c[i] * rem; h[i] = target; }
+      const surf = h[i] + base[i], target = mean + (surf - mean) * 0.35 - D * m;
+      if (surf > target) { let rem = surf - target; if (rem > h[i]) rem = h[i]; removed += rem; cm += c[i] * rem; h[i] -= rem; }
       firm[i] = Math.max(firm[i], Math.min(1, m * 1.6));
       act[i] = 0; u[i] = 0; v[i] = 0;
     } else if (near[k] > 0.02) {
@@ -729,11 +809,271 @@ function drawAnims(now) {
   }
 }
 
+// ---------- buried treasure: dinosaurs! ----------
+const DINOS = ['trex', 'trike', 'stego', 'longneck', 'ptero'];
+const EXTRAS = ['egg', 'bone'];
+const DINOPAL = {
+  trex:     { a: '#62c04c', b: '#3e8e32' },
+  trike:    { a: '#ff9b3d', b: '#d9652a' },
+  stego:    { a: '#9c6cd8', b: '#ffcf3f' },
+  longneck: { a: '#45a6e8', b: '#2d77b8' },
+  ptero:    { a: '#ef5f7a', b: '#ffb35c' },
+  egg:      { a: '#f6edd2', b: '#8cc86a' },
+  bone:     { a: '#f3efe2', b: '#cfc6ad' },
+};
+
+// Toy dinosaurs lying on their sides (side view), unit size ~[-1, 1].
+function drawDino(g, type, p, solid) {
+  const A = solid || p.a, B = solid || p.b, HORN = solid || '#fff3d6', EYEW = solid || '#ffffff', EYE = solid || '#1d1d1d';
+  const tri = (a, b, c2) => { g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c2[0], c2[1]); g.closePath(); g.fill(); };
+  const eye = (x, y, r) => { g.fillStyle = EYEW; dotc(g, x, y, r); g.fillStyle = EYE; dotc(g, x + r * 0.25, y, r * 0.55); };
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  switch (type) {
+    case 'trex': {
+      g.fillStyle = A;
+      g.beginPath(); g.moveTo(-0.25, -0.14); g.quadraticCurveTo(-0.7, -0.06, -1.0, 0.3); g.quadraticCurveTo(-0.6, 0.2, -0.2, 0.2); g.closePath(); g.fill();
+      g.fillStyle = B; ell(g, -0.14, 0.34, 0.14, 0.26, 0.25); ell(g, -0.08, 0.62, 0.18, 0.07, 0);
+      g.fillStyle = A; ell(g, 0, 0.02, 0.42, 0.27, -0.3);
+      g.beginPath(); g.moveTo(0.16, -0.22); g.lineTo(0.42, -0.54); g.lineTo(0.6, -0.36); g.lineTo(0.34, 0.04); g.closePath(); g.fill();
+      ell(g, 0.6, -0.52, 0.32, 0.17, 0.08);
+      ell(g, 0.1, 0.36, 0.13, 0.26, 0.1); ell(g, 0.17, 0.64, 0.19, 0.07, 0);
+      g.strokeStyle = A; g.lineWidth = 0.08;
+      g.beginPath(); g.moveTo(0.34, -0.06); g.lineTo(0.46, 0.08); g.lineTo(0.54, 0.05); g.stroke();
+      g.strokeStyle = B; g.lineWidth = 0.035;
+      g.beginPath(); g.moveTo(0.42, -0.44); g.quadraticCurveTo(0.66, -0.4, 0.9, -0.48); g.stroke();
+      g.fillStyle = B; dotc(g, -0.16, -0.14, 0.05); dotc(g, 0.05, -0.2, 0.045); dotc(g, -0.32, 0.0, 0.04);
+      eye(0.62, -0.58, 0.06);
+      break;
+    }
+    case 'trike': {
+      g.fillStyle = A;
+      g.beginPath(); g.moveTo(-0.45, -0.06); g.quadraticCurveTo(-0.8, 0, -1.0, 0.16); g.quadraticCurveTo(-0.75, 0.22, -0.4, 0.22); g.closePath(); g.fill();
+      g.fillStyle = B; ell(g, -0.36, 0.36, 0.11, 0.21, 0); ell(g, 0.18, 0.36, 0.11, 0.21, 0);
+      g.fillStyle = A; ell(g, -0.06, 0.02, 0.55, 0.32, 0);
+      ell(g, -0.22, 0.42, 0.12, 0.2, 0); ell(g, 0.3, 0.42, 0.12, 0.2, 0);
+      g.fillStyle = B; ell(g, 0.48, -0.2, 0.26, 0.31, 0.4);
+      g.fillStyle = A; ell(g, 0.68, 0.0, 0.25, 0.17, 0.15);
+      g.fillStyle = HORN;
+      tri([0.6, -0.12], [0.69, -0.15], [0.99, -0.4]); tri([0.5, -0.12], [0.58, -0.15], [0.82, -0.45]); tri([0.84, -0.04], [0.9, -0.05], [0.97, -0.2]);
+      eye(0.7, -0.05, 0.055);
+      break;
+    }
+    case 'stego': {
+      g.fillStyle = B;
+      for (let k = 0; k < 6; k++) {
+        const x = -0.5 + k * 0.2, lift = Math.sin(Math.PI * (k + 0.5) / 6);
+        const y = -0.12 - 0.15 * lift;
+        tri([x - 0.1, y + 0.08], [x + 0.1, y + 0.08], [x, y - 0.14 - 0.12 * lift]);
+      }
+      tri([-0.86, 0.04], [-0.8, 0.04], [-0.96, -0.2]); tri([-0.74, 0.05], [-0.68, 0.05], [-0.78, -0.22]);
+      g.fillStyle = A;
+      g.beginPath(); g.moveTo(-0.45, -0.04); g.quadraticCurveTo(-0.8, 0.04, -1.0, 0.02); g.quadraticCurveTo(-0.78, 0.2, -0.42, 0.2); g.closePath(); g.fill();
+      g.fillStyle = B; ell(g, -0.3, 0.38, 0.1, 0.2, 0); ell(g, 0.22, 0.38, 0.1, 0.2, 0);
+      g.fillStyle = A; ell(g, -0.05, 0.06, 0.52, 0.3, 0);
+      ell(g, -0.18, 0.44, 0.11, 0.19, 0); ell(g, 0.32, 0.44, 0.11, 0.19, 0);
+      ell(g, 0.55, 0.1, 0.19, 0.1, 0.3); ell(g, 0.73, 0.19, 0.15, 0.09, 0.2);
+      eye(0.77, 0.15, 0.045);
+      break;
+    }
+    case 'longneck': {
+      g.fillStyle = A;
+      g.beginPath(); g.moveTo(-0.4, 0.15); g.quadraticCurveTo(-0.8, 0.25, -1.0, 0.55); g.quadraticCurveTo(-0.7, 0.38, -0.35, 0.36); g.closePath(); g.fill();
+      g.fillStyle = B; ell(g, -0.3, 0.56, 0.09, 0.22, 0); ell(g, 0.14, 0.56, 0.09, 0.22, 0);
+      g.fillStyle = A; ell(g, -0.08, 0.26, 0.45, 0.27, -0.1);
+      ell(g, -0.15, 0.6, 0.1, 0.22, 0); ell(g, 0.28, 0.58, 0.1, 0.22, 0);
+      g.beginPath(); g.moveTo(0.12, 0.12); g.quadraticCurveTo(0.45, -0.2, 0.54, -0.78); g.lineTo(0.72, -0.76); g.quadraticCurveTo(0.64, -0.12, 0.38, 0.28); g.closePath(); g.fill();
+      ell(g, 0.7, -0.83, 0.18, 0.1, 0.15);
+      g.fillStyle = B; dotc(g, -0.2, 0.14, 0.06); dotc(g, 0.02, 0.1, 0.05); dotc(g, -0.36, 0.26, 0.045);
+      eye(0.74, -0.87, 0.045);
+      break;
+    }
+    case 'ptero': {
+      g.fillStyle = A;
+      for (const sx of [-1, 1]) {
+        g.beginPath(); g.moveTo(sx * 0.08, -0.16); g.lineTo(sx * 1.0, -0.12); g.quadraticCurveTo(sx * 0.62, 0.06, sx * 0.36, 0.32); g.lineTo(sx * 0.07, 0.14); g.closePath(); g.fill();
+      }
+      g.strokeStyle = B; g.lineWidth = 0.035;
+      g.beginPath(); g.moveTo(-0.08, -0.14); g.lineTo(-0.94, -0.12); g.moveTo(0.08, -0.14); g.lineTo(0.94, -0.12); g.stroke();
+      g.fillStyle = B; ell(g, 0, 0.02, 0.13, 0.32, 0);
+      tri([-0.05, 0.3], [0.05, 0.3], [0, 0.5]);
+      g.fillStyle = A; ell(g, 0, -0.38, 0.11, 0.13, 0);
+      g.fillStyle = solid || '#ffcf3f'; tri([-0.05, -0.46], [0.05, -0.46], [0, -0.75]);
+      g.fillStyle = B; tri([-0.04, -0.3], [0.04, -0.3], [0, -0.1]);
+      eye(-0.055, -0.4, 0.035); eye(0.055, -0.4, 0.035);
+      break;
+    }
+    case 'egg': {
+      g.fillStyle = A; ell(g, 0, 0.05, 0.5, 0.66, 0);
+      g.fillStyle = B;
+      for (const [x, y, r] of [[-0.2, -0.3, 0.09], [0.18, -0.12, 0.11], [-0.12, 0.2, 0.08], [0.2, 0.36, 0.07], [-0.3, 0.0, 0.05], [0.05, -0.5, 0.05]]) dotc(g, x, y, r);
+      break;
+    }
+    case 'bone': {
+      g.strokeStyle = A; g.lineWidth = 0.24;
+      g.beginPath(); g.moveTo(-0.55, 0.28); g.lineTo(0.55, -0.28); g.stroke();
+      g.fillStyle = A;
+      for (const [cx, cy] of [[-0.62, 0.32], [0.62, -0.32]]) { dotc(g, cx + 0.06, cy + 0.15, 0.17); dotc(g, cx - 0.1, cy - 0.12, 0.17); }
+      g.strokeStyle = B; g.lineWidth = 0.035;
+      g.beginPath(); g.moveTo(-0.35, 0.12); g.lineTo(0.35, -0.24); g.stroke();
+      break;
+    }
+  }
+}
+
+const objSprites = {};
+function paintObj(g, type, scale, rot) {
+  g.save(); g.rotate(rot || 0); g.scale(scale, scale);
+  const o = 0.045;
+  for (const [dx, dy] of [[o, 0], [-o, 0], [0, o], [0, -o], [o, o], [-o, -o], [o, -o], [-o, o]]) {
+    g.save(); g.translate(dx, dy); drawDino(g, type, DINOPAL[type], 'rgba(45,32,20,1)'); g.restore();
+  }
+  drawDino(g, type, DINOPAL[type]);
+  // shiny plastic
+  g.globalCompositeOperation = 'source-atop';
+  const gr = g.createRadialGradient(-0.35, -0.45, 0.05, -0.2, -0.2, 1.3);
+  gr.addColorStop(0, 'rgba(255,255,255,0.45)'); gr.addColorStop(0.45, 'rgba(255,255,255,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.25)');
+  g.fillStyle = gr; g.fillRect(-1.3, -1.3, 2.6, 2.6);
+  g.restore();
+}
+function buildObjSprites() {
+  for (const t of DINOS.concat(EXTRAS)) {
+    const sz = Math.ceil(OBJ_R * 2.4 * DPR), cnv = document.createElement('canvas');
+    cnv.width = cnv.height = sz;
+    const g = cnv.getContext('2d'); g.translate(sz / 2, sz / 2); paintObj(g, t, OBJ_R * DPR);
+    objSprites[t] = cnv;
+  }
+}
+
+let objs = [];
+// toys start properly hidden: at least ~7px of sand over them
+function coverOver(i, hh) {
+  if (base[i] > 0.05) firm[i] = 0.7; // the sand over a buried toy is packed down
+  const minC = base[i] > 0.05 ? 5 / CELL : 0.5; return hh > minC ? hh : minC;
+}
+function placeObjects() {
+  const pick = DINOS.slice().sort(() => Math.random() - 0.5).slice(0, 4);
+  pick.push(EXTRAS[(Math.random() * EXTRAS.length) | 0]);
+  objs = [];
+  const m = OBJ_R + 6, minD = OBJ_R * 2.05;
+  for (const type of pick) {
+    for (let tries = 0; tries < 300; tries++) {
+      const x = m + Math.random() * (cssW - 2 * m), y = m + Math.random() * (cssH - 2 * m);
+      if (objs.some(o => Math.hypot(o.fx * cssW - x, o.fy * cssH - y) < minD)) continue;
+      objs.push({ type, fx: x / cssW, fy: y / cssH, rot: (Math.random() - 0.5) * 1.2, found: false, cel: 0 });
+      break;
+    }
+  }
+  rasterizeObjects();
+}
+function rasterizeObjects() {
+  base.fill(0); objId.fill(0);
+  const objH = 14 / CELL;
+  objs.forEach((o, k) => {
+    const S = Math.ceil(OBJ_R * 2.4 / CELL) + 4;
+    maskCanvas.width = S; maskCanvas.height = S;
+    mctx.clearRect(0, 0, S, S);
+    mctx.save(); mctx.translate(S / 2, S / 2); paintObj(mctx, o.type, OBJ_R / CELL, o.rot); mctx.restore();
+    const d = mctx.getImageData(0, 0, S, S).data;
+    const cov = new Float32Array(S * S);
+    for (let i = 0; i < S * S; i++) cov[i] = d[i * 4 + 3] / 255;
+    const soft = boxBlur(cov, S, 2);
+    const ox = Math.round(o.fx * cssW / CELL - S / 2), oy = Math.round(o.fy * cssH / CELL - S / 2);
+    for (let q = 0; q < S * S; q++) {
+      const x = ox + (q % S), y = oy + ((q / S) | 0);
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      const i = y * W + x, bh = objH * Math.sqrt(soft[q]);
+      if (bh > base[i]) base[i] = bh;
+      if (cov[q] > 0.5) objId[i] = k + 1;
+    }
+  });
+}
+
+// When enough sand is brushed off a toy: roar, sparkles, a little happy dance.
+const sparkles = [];
+let findTick = 0;
+function checkFinds(now) {
+  if (++findTick % 12 || !objs.length) return;
+  const tot = new Int32Array(objs.length + 1), shown = new Int32Array(objs.length + 1);
+  for (let i = 0; i < N; i++) { const k = objId[i]; if (k) { tot[k]++; if (h[i] < 1.4 && wat[i] < 1.2) shown[k]++; } }
+  objs.forEach((o, k) => {
+    const f = tot[k + 1] ? shown[k + 1] / tot[k + 1] : 0;
+    if (!o.found && f > 0.4) {
+      o.found = true; o.cel = now;
+      sound.found(DINOS.includes(o.type));
+      if (navigator.vibrate) try { navigator.vibrate([30, 60, 30]); } catch (e) {}
+      const cx = o.fx * cssW, cy = o.fy * cssH;
+      for (let s = 0; s < 22; s++) {
+        const a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 3;
+        sparkles.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1, t0: now, life: 700 + Math.random() * 600, r: 4 + Math.random() * 5,
+                        col: ['#fff27a', '#ffffff', '#ffd23f', '#ff9de2'][s % 4] });
+      }
+    } else if (o.found && f < 0.1) o.found = false; // buried again - can be found again
+  });
+}
+function star(x, y, r) {
+  ctx.beginPath();
+  for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, rr = k % 2 ? r * 0.35 : r; ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+  ctx.closePath(); ctx.fill();
+}
+function drawFinds(now) {
+  for (const o of objs) {
+    const t = (now - o.cel) / 1000;
+    if (!o.cel || t > 1.6) continue;
+    const spr = objSprites[o.type], hop = Math.abs(Math.sin(t * Math.PI * 2.5)) * (1 - t / 1.6);
+    const sz = spr.width / DPR * (1 + 0.15 * hop), x = o.fx * cssW, y = o.fy * cssH - 18 * hop;
+    ctx.save();
+    ctx.globalAlpha = t < 1.3 ? 1 : (1.6 - t) / 0.3;
+    ctx.translate(x, y); ctx.rotate(o.rot + Math.sin(t * 14) * 0.12 * (1 - t / 1.6));
+    ctx.drawImage(spr, -sz / 2, -sz / 2, sz, sz);
+    ctx.restore();
+  }
+  for (let n = sparkles.length - 1; n >= 0; n--) {
+    const s = sparkles[n], t = now - s.t0;
+    if (t > s.life) { sparkles.splice(n, 1); continue; }
+    s.x += s.vx; s.y += s.vy; s.vy += 0.06;
+    ctx.globalAlpha = 1 - t / s.life; ctx.fillStyle = s.col;
+    star(s.x, s.y, s.r * (1 - 0.4 * t / s.life));
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- the hose ----------
+function hoseStep() {
+  let n = 0;
+  for (const p of pointers.values()) {
+    if (p.tool !== 'hose') continue; n++;
+    const nx = p.x / CELL, ny = (p.y - 30) / CELL;
+    if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+    const z0 = h[(ny | 0) * W + (nx | 0)] + base[(ny | 0) * W + (nx | 0)] + 8;
+    for (let k = 0; k < 26; k++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.4, sp = (2.4 + Math.random() * 1.4) / CELL;
+      spawnDrop(nx + (Math.random() - 0.5) * 0.6, ny, z0, Math.cos(a) * sp, Math.sin(a) * sp, 1.0 + Math.random() * 0.7, 0.09);
+    }
+  }
+  return n;
+}
+function drawHoses() {
+  for (const p of pointers.values()) {
+    if (p.tool !== 'hose') continue;
+    const x = p.x, y = p.y;
+    ctx.lineCap = 'round';
+    const hose = (lw, col) => {
+      ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath();
+      ctx.moveTo(cssW * 0.5, cssH + 40); ctx.bezierCurveTo(cssW * 0.5, cssH - 20, x, y + 90, x, y + 12); ctx.stroke();
+    };
+    hose(17, 'rgba(0,0,0,0.18)'); hose(15, '#2e8a3a'); hose(10, '#48b955'); hose(3, 'rgba(255,255,255,0.35)');
+    ctx.fillStyle = '#6b3d10'; ctx.fillRect(x - 10, y - 32, 20, 48);
+    ctx.fillStyle = '#ffc531'; ctx.fillRect(x - 8, y - 30, 16, 44);
+    ctx.fillStyle = '#ff8a1f'; ctx.fillRect(x - 6, y - 36, 12, 10);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fillRect(x - 6, y - 28, 4, 38);
+  }
+}
+
 // ---------- the wave (smooth + re-level) ----------
 let wave = null;
 function startWave() {
   if (wave) return;
-  let s = 0; for (let i = 0; i < N; i++) s += h[i];
+  let s = 0; for (let i = 0; i < N; i++) s += h[i] + base[i];
   wave = { y: -40, mean: s / N, t0: performance.now() };
   needCal = true; // whatever pose the phone is in now becomes "level"
   if (!ori) needCal = true;
@@ -748,14 +1088,16 @@ function stepWave() {
   for (let y = 0; y < rows; y++) {
     const back = (wave.y - y * CELL) / 140, f = Math.min(0.25, 0.03 + back * 0.12);
     for (let x = 0, i = y * W; x < W; x++, i++) {
-      h[i] += (m - h[i]) * f; firm[i] *= 0.8; act[i] = 0; u[i] = 0; v[i] = 0;
+      const tgt = m - base[i];
+      h[i] += ((tgt > 0 ? tgt : 0) - h[i]) * f; firm[i] *= 0.8; act[i] = 0; u[i] = 0; v[i] = 0; wat[i] *= 0.8;
       if (wet[i] < 1) wet[i] = Math.min(1, wet[i] + 0.12);
     }
   }
   wetActive = true;
   if (t > dur + 600) {
-    for (let i = 0; i < N; i++) h[i] = m + (h[i] - m) * 0.0;
-    for (let i = 0; i < N; i++) firm[i] = 0;
+    placeObjects(); // new dinosaurs to find!
+    for (let i = 0; i < N; i++) { firm[i] = 0; h[i] = coverOver(i, m - base[i]); wat[i] = 0; }
+    waterTotal = 0;
     wave = null;
   }
 }
@@ -799,26 +1141,47 @@ function render(now) {
     const up = y > 0 ? -W : 0, dn = y < H - 1 ? W : 0;
     for (let x = 0; x < W; x++) {
       const i = y * W + x, lf = x > 0 ? -1 : 0, rt = x < W - 1 ? 1 : 0;
-      const hcur = h[i], caster = (x > 0 && y > 0) ? sh[i - W - 1] - DROP : hcur;
+      const hcur = h[i] + base[i], caster = (x > 0 && y > 0) ? sh[i - W - 1] - DROP : hcur;
       sh[i] = caster > hcur ? caster : hcur;
       let shade = (caster - hcur) * 0.45; shade = shade < 0 ? 0 : shade > 1 ? 1 : shade;
-      const gx = (h[i + rt] - h[i + lf]) * 0.36, gy = (h[i + dn] - h[i + up]) * 0.36;
+      const il = i + lf, ir = i + rt, iu = i + up, id = i + dn;
+      const gx = (h[ir] + base[ir] - h[il] - base[il]) * 0.36, gy = (h[id] + base[id] - h[iu] - base[iu]) * 0.36;
       let s = (-gx * Lx - gy * Ly + Lz) / Math.sqrt(gx * gx + gy * gy + 1);
       if (s < 0) s = 0;
       const hh = h[i], w = wet[i];
       let lum = (0.3 + 0.92 * s) * (1 - 0.3 * shade) * c[i] * (1 - 0.22 * w);
       if (hh < 5) lum *= 0.84 + 0.032 * hh; // deeper sand is damper and darker
       let r = sandR * lum, g = sandG * lum * (1 - 0.03 * w), b = sandB * lum * (1 + 0.06 * w);
-      if (hh < 1.2) { // the blue tray floor peeks through
+      let alpha = 255;
+      if (objId[i]) { // a buried toy shows through thin sand
+        const t = (hh - 0.3) / 1.9; alpha = t <= 0 ? 0 : t >= 1 ? 255 : 255 * t * t;
+      } else if (hh < 1.2) { // the blue tray floor peeks through
         const t = hh / 1.2, fl = 0.75 + 0.3 * s;
         r = flR * fl + (r - flR * fl) * t; g = flG * fl + (g - flG * fl) * t; b = flB * fl + (b - flB * fl) * t;
       }
-      img32[i] = 0xff000000 | ((b > 255 ? 255 : b) << 16) | ((g > 255 ? 255 : g) << 8) | (r > 255 ? 255 : r);
+      const wa = wat[i];
+      if (wa > 0.015) { // water: tinted by depth, lit by its own rippling surface
+        const wl = hcur + wa, wgx = (h[ir] + base[ir] + wat[ir] - h[il] - base[il] - wat[il]) * 0.5, wgy = (h[id] + base[id] + wat[id] - h[iu] - base[iu] - wat[iu]) * 0.5;
+        let sw = (-wgx * Lx - wgy * Ly + Lz) / Math.sqrt(wgx * wgx + wgy * wgy + 1);
+        if (wa > 0.25) sw += 0.05 * Math.sin(x * 0.8 + now * 0.006) * Math.sin(y * 0.7 - now * 0.005);
+        const t = wa > 1.2 ? 0.82 : 0.36 + wa * 0.38, ws = 0.6 + 0.5 * sw;
+        r = r * (1 - t) + 62 * ws * t; g = g * (1 - t) + 158 * ws * t; b = b * (1 - t) + 214 * ws * t;
+        if (sw > 0.9) { const sp = (sw - 0.9) * 1400 * (t + 0.2); r += sp; g += sp; b += sp; }
+        const wa255 = t * 255 + 60; if (wa255 > alpha) alpha = wa255 > 255 ? 255 : wa255;
+        void wl;
+      }
+      if (r < 0) r = 0; if (g < 0) g = 0; if (b < 0) b = 0;
+      img32[i] = ((alpha | 0) << 24) | ((b > 255 ? 255 : b) << 16) | ((g > 255 ? 255 : g) << 8) | (r > 255 ? 255 : r);
     }
   }
   sctx.putImageData(img, 0, 0);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  ctx.clearRect(0, 0, cssW, cssH);
+  for (const o of objs) { // the toys sit under the sand
+    const spr = objSprites[o.type], sz = spr.width / DPR;
+    ctx.save(); ctx.translate(o.fx * cssW, o.fy * cssH); ctx.rotate(o.rot); ctx.drawImage(spr, -sz / 2, -sz / 2, sz, sz); ctx.restore();
+  }
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(small, 0, 0, W * CELL, H * CELL);
   if (grainPat) {
@@ -829,21 +1192,25 @@ function render(now) {
   // airborne grains + their shadows
   if (parts.length) {
     ctx.fillStyle = 'rgba(70,45,10,0.14)';
-    for (const p of parts) { const z = p.z - h[(p.y | 0) * W + (p.x | 0)]; if (z > 0.5) ctx.fillRect(p.x * CELL + z * 0.9, p.y * CELL + z * 1.2, 2, 2); }
+    for (const p of parts) { const j = (p.y | 0) * W + (p.x | 0), z = p.z - h[j] - base[j]; if (z > 0.5) ctx.fillRect(p.x * CELL + z * 0.9, p.y * CELL + z * 1.2, 2, 2); }
     for (const p of parts) {
-      const v = p.c * 240 | 0, sz = 1.8 + Math.max(0, p.z) * 0.03;
+      const sz = 1.8 + Math.max(0, p.z) * 0.03;
+      if (p.w) { ctx.fillStyle = 'rgba(190,230,255,0.9)'; ctx.fillRect(p.x * CELL - sz / 2, p.y * CELL - sz / 2, sz + 0.6, sz + 0.6); continue; }
+      const v = p.c * 240 | 0;
       ctx.fillStyle = `rgb(${v},${v * 0.86 | 0},${v * 0.64 | 0})`;
       ctx.fillRect(p.x * CELL - sz / 2, p.y * CELL - sz / 2, sz, sz);
     }
   }
   drawWave();
+  drawFinds(now);
   drawAnims(now);
+  drawHoses();
   drawCarries(now);
 }
 
 // ---------- sound ----------
 const sound = (() => {
-  let a = null, master = null, scrape, pour, flow, noise, muted = false;
+  let a = null, master = null, scrape, pour, flow, spray, noise, muted = false;
   function chain(type, f, q) {
     const s = a.createBufferSource(); s.buffer = noise; s.loop = true;
     const fl = a.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
@@ -860,12 +1227,32 @@ const sound = (() => {
         const d = noise.getChannelData(0);
         for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (Math.random() < 0.3 ? 1 : 0.35); // crackly grain noise
         master = a.createGain(); master.gain.value = 0.9; master.connect(a.destination);
-        scrape = chain('bandpass', 1500, 0.8); pour = chain('bandpass', 3400, 1.1); flow = chain('lowpass', 1100, 0.6);
+        scrape = chain('bandpass', 1500, 0.8); pour = chain('bandpass', 3400, 1.1); flow = chain('lowpass', 1100, 0.6); spray = chain('highpass', 2600, 0.5);
       } catch (e) { a = null; }
     },
-    levels(sc, po, fl) {
+    levels(sc, po, fl, spr) {
       if (!a) return; const t = a.currentTime;
       scrape.gain.setTargetAtTime(sc, t, 0.05); pour.gain.setTargetAtTime(po, t, 0.08); flow.gain.setTargetAtTime(fl, t, 0.12);
+      spray.gain.setTargetAtTime(spr, t, 0.06);
+    },
+    found(isDino) {
+      if (!a || muted) return; const t = a.currentTime;
+      let at = t;
+      if (isDino) { // a friendly "rawr!"
+        const o = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain(), l = a.createOscillator(), lg = a.createGain();
+        o.type = 'sawtooth'; o.frequency.setValueAtTime(230, t); o.frequency.linearRampToValueAtTime(300, t + 0.15); o.frequency.linearRampToValueAtTime(150, t + 0.65);
+        l.frequency.value = 24; lg.gain.value = 16; l.connect(lg); lg.connect(o.frequency);
+        f.type = 'lowpass'; f.Q.value = 3; f.frequency.setValueAtTime(500, t); f.frequency.linearRampToValueAtTime(1600, t + 0.15); f.frequency.linearRampToValueAtTime(450, t + 0.7);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.06); g.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
+        o.connect(f); f.connect(g); g.connect(master); o.start(t); l.start(t); o.stop(t + 0.8); l.stop(t + 0.8);
+        at = t + 0.7;
+      }
+      [523.25, 659.25, 783.99, 1046.5].forEach((fq, k) => { // ta-da!
+        const o = a.createOscillator(), g = a.createGain(), st = at + k * 0.09;
+        o.type = 'triangle'; o.frequency.value = fq;
+        g.gain.setValueAtTime(0.0001, st); g.gain.exponentialRampToValueAtTime(0.15, st + 0.02); g.gain.exponentialRampToValueAtTime(0.001, st + 0.45);
+        o.connect(g); g.connect(master); o.start(st); o.stop(st + 0.5);
+      });
     },
     stamp(idx) {
       if (!a || muted) return; const t = a.currentTime;
@@ -965,7 +1352,7 @@ function pourStep() {
     for (let k = 0; k < 48; k++) {
       const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * spread;
       const x = Math.max(0, Math.min(W - 1, gx + Math.cos(a) * r)), y = Math.max(0, Math.min(H - 1, gy + Math.sin(a) * r));
-      spawnGrain(x, y, h[(y | 0) * W + (x | 0)] + 22 + Math.random() * 10, (Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.08, -0.6, 0.3, grainTint());
+      spawnGrain(x, y, h[(y | 0) * W + (x | 0)] + base[(y | 0) * W + (x | 0)] + 22 + Math.random() * 10, (Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.08, -0.6, 0.3, grainTint());
     }
   }
   return n;
@@ -991,6 +1378,18 @@ function select(b) { buttons.forEach(x => x.classList.toggle('sel', x === b)); }
 
 const handBtn = mkBtn(toolsRow, '✋', 'Dig with your finger', b => { tool = 'hand'; select(b); });
 mkBtn(toolsRow, '🪣', 'Pour sand', b => { tool = 'pour'; select(b); });
+{
+  const ic = document.createElement('canvas'); ic.width = ic.height = 128;
+  const g = ic.getContext('2d'); g.lineCap = 'round';
+  g.strokeStyle = '#2e8a3a'; g.lineWidth = 16; g.beginPath(); g.arc(50, 80, 30, 0, Math.PI * 1.75); g.stroke();
+  g.strokeStyle = '#4cbc57'; g.lineWidth = 10; g.beginPath(); g.arc(50, 80, 30, 0, Math.PI * 1.75); g.stroke();
+  g.save(); g.translate(74, 56); g.rotate(-0.8);
+  g.fillStyle = '#6b3d10'; g.fillRect(-11, -26, 22, 40); g.fillStyle = '#ffc531'; g.fillRect(-8, -23, 16, 34); g.fillStyle = '#ff8a1f'; g.fillRect(-6, -32, 12, 10);
+  g.restore();
+  g.fillStyle = '#3aa0f0';
+  for (const [x, y, r] of [[98, 22, 7], [114, 12, 5], [108, 36, 6], [120, 28, 4]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+  mkBtn(toolsRow, ic, 'Spray water with the hose', b => { tool = 'hose'; select(b); });
+}
 mkBtn(toolsRow, '🌊', 'Smooth the sand', b => { startWave(); }, 'action');
 mkBtn(toolsRow, '🔊', 'Sound on or off', b => { b.textContent = sound.toggle() ? '🔇' : '🔊'; }, 'action small');
 
@@ -1040,17 +1439,21 @@ function frame(now) {
     wetActive = any;
   }
   const pouring = pourStep();
+  const spraying = hoseStep();
   stepWave();
   flowThisFrame = 0;
   const t0 = performance.now();
   for (let k = 0; k < P.iters; k++) relax(tiltX, tiltY, agit);
+  smoothVel();
   // slower phones: drop to two physics passes per frame if the sim is hogging the frame
   physMs = physMs * 0.97 + (performance.now() - t0) * 0.03;
   if (physMs > 11 && P.iters > 2) P.iters = 2;
   updateParticles();
+  waterStep(tiltX, tiltY); waterStep(tiltX, tiltY);
+  checkFinds(now);
   render(now);
   scrapeLvl = scrapeLvl * 0.6 + Math.min(0.55, fingerTravel / 60) * 0.4; fingerTravel = 0;
-  sound.levels(scrapeLvl, pouring ? 0.22 : 0, Math.min(0.4, flowThisFrame / (N * 0.004)));
+  sound.levels(scrapeLvl, pouring ? 0.22 : 0, Math.min(0.4, flowThisFrame / (N * 0.004)), spraying ? 0.2 : 0);
 }
 
 resize();
