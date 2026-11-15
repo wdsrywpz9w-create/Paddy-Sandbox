@@ -101,28 +101,43 @@
   }
   #gear.holding::after { opacity: 1; animation: hold 1.2s linear forwards; }
   @keyframes hold { to { clip-path: inset(0 0 0 0); } }
+  /* The overlay is pinned to the screen edges, so its height is the part of the screen you can
+     actually see (100vh on iPhones includes the area behind the browser bars). The panel is capped
+     to that height and scrolls inside itself; Done stays pinned to its bottom edge. */
   #settings {
-    position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
-    background: rgba(20,50,70,.55); padding: 16px;
+    position: fixed; inset: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(20,50,70,.55);
+    padding: max(10px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
   }
   #settings.hide { display: none; }
+  html.settings-open, html.settings-open body { touch-action: auto; } /* let the settings panel scroll on iPhones */
   #settings .panel {
-    width: min(360px, 100%); background: #fffaf0; border-radius: 22px; padding: 20px 18px 18px;
+    position: relative; width: min(360px, 100%); max-height: 100%;
+    overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+    background: #fffaf0; border-radius: 22px; padding: 16px 16px 0;
     color: #4a3015; box-shadow: 0 12px 30px rgba(0,0,0,.3);
   }
-  #settings h2 { margin: 0 0 14px; font-size: 21px; }
-  #settings .opt { margin-bottom: 16px; }
+  #settings h2 { margin: 0 44px 12px 0; font-size: 20px; }
+  #closeX {
+    position: absolute; top: 10px; right: 10px; width: 38px; height: 38px; border-radius: 50%;
+    border: none; background: #f0e2c8; color: #4a3015; font: inherit; font-size: 18px; font-weight: 800;
+  }
+  #settings .donebar {
+    position: sticky; bottom: 0; margin: 4px -16px 0; padding: 10px 16px 14px;
+    background: linear-gradient(rgba(255,250,240,0), #fffaf0 30%);
+  }
+  #settings .opt { margin-bottom: 13px; }
   #settings .opt > span { display: block; font-weight: 700; margin-bottom: 7px; }
   #settings .seg { display: flex; gap: 6px; }
   #settings .seg button {
-    flex: 1; padding: 11px 4px; border-radius: 12px; border: 2px solid #e2c9a0;
+    flex: 1; padding: 10px 4px; border-radius: 12px; border: 2px solid #e2c9a0;
     background: #fff; color: #4a3015; font: inherit; font-weight: 700; font-size: 15px;
   }
   #settings .seg.small { flex-wrap: wrap; }
   #settings .seg.small button { flex: 1 1 28%; }
-  #settings .panel { max-height: calc(100vh - 32px); overflow-y: auto; touch-action: pan-y; }
   #settings .seg button.on { background: #ffe36b; border-color: #e0a92a; }
-  #settings .note { font-size: 13px; opacity: .7; margin: -6px 0 14px; line-height: 1.35; }
+  #settings .note { font-size: 13px; opacity: .7; margin: -5px 0 12px; line-height: 1.35; }
   #done {
     width: 100%; padding: 13px; border: none; border-radius: 14px; background: #3aa7d9; color: #fff;
     font: inherit; font-size: 17px; font-weight: 800;
@@ -165,6 +180,7 @@
   <div id="settings" class="hide" role="dialog" aria-label="Grown-up settings">
     <div class="panel">
       <h2>Grown-up settings</h2>
+      <button id="closeX" aria-label="Close settings">✕</button>
       <div class="opt"><span>Tilt &amp; shake (motion sensors)</span>
         <div class="seg" data-key="motion"><button data-v="on">On</button><button data-v="off">Off</button></div></div>
       <div class="opt"><span>Tilt sensitivity</span>
@@ -180,7 +196,7 @@
         <div class="seg" data-key="bg"><button data-v="rocky">Rocky</button><button data-v="sky">Sky blue</button></div></div>
       <div class="opt"><span>Sound</span>
         <div class="seg" data-key="sound"><button data-v="on">On</button><button data-v="off">Off</button></div></div>
-      <button id="done">Done</button>
+      <div class="donebar"><button id="done">Done</button></div>
     </div>
   </div>
 
@@ -2042,6 +2058,8 @@ function showSettings() {
   panel.querySelectorAll('.seg').forEach(seg => seg.querySelectorAll('button').forEach(b =>
     b.classList.toggle('on', settings[seg.dataset.key] === b.dataset.v)));
   panel.classList.remove('hide');
+  document.documentElement.classList.add('settings-open');
+  panel.querySelector('.panel').scrollTop = 0;
 }
 gear.addEventListener('pointerdown', e => {
   e.preventDefault(); gear.classList.add('holding');
@@ -2060,10 +2078,14 @@ panel.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', a
     else { tiltX = tiltY = 0; agit = 0; }
   }
 }));
-document.getElementById('done').addEventListener('click', () => {
+function closeSettings() {
   panel.classList.add('hide');
+  document.documentElement.classList.remove('settings-open');
   if (settings.bury !== buryWhenOpened) startWave(); // re-bury at the new depth
-});
+}
+document.getElementById('done').addEventListener('click', closeSettings);
+document.getElementById('closeX').addEventListener('click', closeSettings);
+panel.addEventListener('click', e => { if (e.target === panel) closeSettings(); }); // tap outside the panel
 
 document.addEventListener('visibilitychange', () => { document.hidden ? sound.suspend() : sound.resume(); });
 window.addEventListener('resize', () => setTimeout(resize, 60));
