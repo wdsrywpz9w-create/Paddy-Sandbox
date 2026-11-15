@@ -42,13 +42,14 @@ Sand is conserved: anything dug or stamped out is pushed into ridges and rims, a
 
 The lighting is computed from the surface slope, with light coming from a low sun at the top-left. Piles and ridges also cast soft shadows. That shading is what makes grooves, piles and imprints look 3-D.
 
-Tilt is deliberately about 2× more sensitive than a real sand tray. Real sand needs about 35° of tilt to slide, which is a lot to ask of small hands.
+Real sand needs about 35° of tilt to slide. The tilt-sensitivity setting exaggerates tilt a little (Low), more (Medium) or about 2× (High) so small hands can get the sand moving; water always feels the phone's real tilt.
 
 ## Grown-up notes
 
 - **Settings:** press and hold the ⚙️ in the top corner for about a second; a quick tap does nothing, so little fingers won't open it. Settings are remembered on this phone:
   - **Tilt & shake:** turns the motion sensors off, so the sand stays put however the phone is held.
-  - **How deep the dinosaurs are buried:** *Shallow* (toys just under the surface, easy finds), *Medium*, or *Deep* (a thick sand bed and only faint lumps). Changing it washes the tray smooth and buries a new set.
+  - **Tilt sensitivity:** *Low* (the default; sand starts to slide at about 30° of tilt and only a firm shake counts), *Medium* (about 22°) or *High* (about 17°).
+  - **Buried dinosaurs:** *Off* (no toys), *Shallow* (just under the surface, easy finds), *Medium*, *Deep* (thick sand, faint lumps) or *Hidden* (buried under dead-flat sand with no lumps at all, so finding them is pure exploring). Changing it washes the tray smooth and buries a new set.
   - **Water in low spots (for moats):** *Off*, *Low* or *High*. Like digging near the sea: any hole, trench or moat dug below the water table slowly fills with seep-in water, and drains back if filled in. *Low* needs a deep dig; *High* fills even shallow scrapes and dune hollows. The water stays level with real gravity, so tilting sloshes moats toward the low side.
   - **Sound:** on or off.
 

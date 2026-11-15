@@ -116,6 +116,9 @@
     flex: 1; padding: 11px 4px; border-radius: 12px; border: 2px solid #e2c9a0;
     background: #fff; color: #4a3015; font: inherit; font-weight: 700; font-size: 15px;
   }
+  #settings .seg.small { flex-wrap: wrap; }
+  #settings .seg.small button { flex: 1 1 28%; }
+  #settings .panel { max-height: calc(100vh - 32px); overflow-y: auto; touch-action: pan-y; }
   #settings .seg button.on { background: #ffe36b; border-color: #e0a92a; }
   #settings .note { font-size: 13px; opacity: .7; margin: -6px 0 14px; line-height: 1.35; }
   #done {
@@ -162,9 +165,12 @@
       <h2>Grown-up settings</h2>
       <div class="opt"><span>Tilt &amp; shake (motion sensors)</span>
         <div class="seg" data-key="motion"><button data-v="on">On</button><button data-v="off">Off</button></div></div>
-      <div class="opt"><span>How deep the dinosaurs are buried</span>
-        <div class="seg" data-key="bury"><button data-v="shallow">Shallow</button><button data-v="medium">Medium</button><button data-v="deep">Deep</button></div></div>
-      <p class="note">Changing the depth washes the sand smooth and buries a new set.</p>
+      <div class="opt"><span>Tilt sensitivity</span>
+        <div class="seg" data-key="sens"><button data-v="low">Low</button><button data-v="medium">Medium</button><button data-v="high">High</button></div></div>
+      <p class="note">How far the phone must tip before sand slides: about 30° on Low, 22° on Medium, 17° on High.</p>
+      <div class="opt"><span>Buried dinosaurs</span>
+        <div class="seg small" data-key="bury"><button data-v="off">Off</button><button data-v="shallow">Shallow</button><button data-v="medium">Medium</button><button data-v="deep">Deep</button><button data-v="hidden">Hidden</button></div></div>
+      <p class="note"><b>Hidden</b> buries them deep under flat sand with no lumps to give them away. Changing this washes the sand smooth and buries a new set.</p>
       <div class="opt"><span>Water in low spots (for moats)</span>
         <div class="seg" data-key="tide"><button data-v="off">Off</button><button data-v="low">Low</button><button data-v="high">High</button></div></div>
       <p class="note">Like digging near the sea: holes and trenches fill with water. <b>Low</b> needs a deep dig; <b>High</b> fills even shallow ones.</p>
@@ -191,11 +197,18 @@ const small = document.createElement('canvas');
 const sctx = small.getContext('2d');
 
 // ---------- grown-up settings (remembered on this device) ----------
-const settings = { motion: 'on', bury: 'medium', sound: 'on', tide: 'off' };
+const settings = { motion: 'on', sens: 'low', bury: 'medium', sound: 'on', tide: 'off' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('sandbox-settings') || '{}')); } catch (e) {}
 function saveSettings() { try { localStorage.setItem('sandbox-settings', JSON.stringify(settings)); } catch (e) {} }
 // sand bed thickness and the sand left over each toy, in screen px
-const BURY = { shallow: { bed: 13, cover: 2 }, medium: { bed: 15, cover: 5 }, deep: { bed: 22, cover: 10 } };
+const BURY = {
+  off: { bed: 15, cover: 0 },
+  shallow: { bed: 13, cover: 2 }, medium: { bed: 15, cover: 5 }, deep: { bed: 22, cover: 10 },
+  hidden: { bed: 26, cover: 8 }, // toys are 14px tall: 26px of sand leaves the surface dead flat over them
+};
+// how strongly tilt drives the sand, and how hard a shake must be
+const SENS = { low: { gain: 1.25, shake: 18 }, medium: { gain: 1.8, shake: 15 }, high: { gain: 2.4, shake: 13 } };
+const sens = () => SENS[settings.sens] || SENS.low;
 const bury = () => BURY[settings.bury] || BURY.medium;
 
 // ---------- tunables ----------
@@ -205,7 +218,7 @@ const P = {
   COH: 4.0,       // extra slope pressed/compacted sand can hold
   WETC: 1.4,      // extra slope wet sand can hold
   k: 0.1,         // flow rate
-  tiltGain: 2.4,  // makes ~20° of tilt enough to start sand sliding
+  tiltGain: 1.25, // set from the tilt-sensitivity setting
   iters: 3,       // physics passes per frame
   G: 0.13,        // gravity pull on moving sand (cells / pass²)
   mobile: 1.8,    // thickness of the surface layer that can flow
@@ -446,7 +459,8 @@ window.addEventListener('devicemotion', e => {
   else if (e.accelerationIncludingGravity && e.accelerationIncludingGravity.x != null) {
     const g = e.accelerationIncludingGravity; m = Math.abs(Math.hypot(g.x, g.y, g.z) - 9.81);
   }
-  if (m > 13) agit = Math.min(1, agit + (m - 13) * 0.02);
+  const sh = sens().shake;
+  if (m > sh) agit = Math.min(1, agit + (m - sh) * 0.02);
 });
 
 function screenAngle() {
@@ -470,6 +484,7 @@ function updateTilt() {
   }
   gx += keyTilt.x; gy += keyTilt.y;
   gz = Math.max(gz, 0.3);
+  P.tiltGain = sens().gain;
   let tx = P.tiltGain * gx / gz, ty = P.tiltGain * gy / gz;
   tx = Math.max(-3, Math.min(3, tx)); ty = Math.max(-3, Math.min(3, ty));
   tiltX += (tx - tiltX) * 0.15; tiltY += (ty - tiltY) * 0.15;
@@ -1073,6 +1088,7 @@ function coverOver(i, hh) {
   const minC = base[i] > 0.05 ? bury().cover / CELL : 0.5; return hh > minC ? hh : minC;
 }
 function placeObjects() {
+  if (settings.bury === 'off') { objs = []; rasterizeObjects(); return; }
   const pick = DINOS.slice().sort(() => Math.random() - 0.5).slice(0, 4);
   pick.push(EXTRAS[(Math.random() * EXTRAS.length) | 0]);
   objs = [];
