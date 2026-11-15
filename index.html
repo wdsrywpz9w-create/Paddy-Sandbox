@@ -7,14 +7,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Sandbox">
-<meta name="theme-color" content="#5cc4ea">
+<meta name="theme-color" content="#3a342f">
 <title>Paddy's Sandbox</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 <style>
   :root {
-    --b: min(58px, calc((100vw - 52px) / 7.3));
+    --b: max(40px, min(56px, calc((100vw - 48px) / 8.3)));
     --gap: min(8px, 1.6vw);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -27,9 +27,10 @@
   body {
     position: fixed; inset: 0;
     display: flex; flex-direction: column;
-    background: linear-gradient(180deg, #7fd3f2 0%, #5cc4ea 55%, #3fb0dc 100%);
+    background: #3a342f center / cover no-repeat;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   }
+  body.sky { background: linear-gradient(180deg, #7fd3f2 0%, #5cc4ea 55%, #3fb0dc 100%) !important; }
   #frame {
     flex: 1; min-height: 0;
     margin: 4px 4px 8px;
@@ -68,6 +69,7 @@
   .popup .btn { box-shadow: 0 3px 0 rgba(0,40,70,.2); }
   #dyes { --b: min(46px, calc((100vw - 96px) / 8.4)); gap: 6px; }
   .row { display: flex; gap: var(--gap); justify-content: center; }
+  @media (max-width: 380px) { #tools { flex-wrap: wrap; max-width: calc(4 * var(--b) + 3 * var(--gap) + 8px); row-gap: 8px; } }
   .btn {
     width: var(--b); height: var(--b); padding: 0;
     border: none; border-radius: 50%;
@@ -174,6 +176,8 @@
       <div class="opt"><span>Water in low spots (for moats)</span>
         <div class="seg" data-key="tide"><button data-v="off">Off</button><button data-v="low">Low</button><button data-v="high">High</button></div></div>
       <p class="note">Like digging near the sea: holes and trenches fill with water. <b>Low</b> needs a deep dig; <b>High</b> fills even shallow ones.</p>
+      <div class="opt"><span>Background</span>
+        <div class="seg" data-key="bg"><button data-v="rocky">Rocky</button><button data-v="sky">Sky blue</button></div></div>
       <div class="opt"><span>Sound</span>
         <div class="seg" data-key="sound"><button data-v="on">On</button><button data-v="off">Off</button></div></div>
       <button id="done">Done</button>
@@ -197,7 +201,7 @@ const small = document.createElement('canvas');
 const sctx = small.getContext('2d');
 
 // ---------- grown-up settings (remembered on this device) ----------
-const settings = { motion: 'on', sens: 'low', bury: 'medium', sound: 'on', tide: 'off' };
+const settings = { motion: 'on', sens: 'low', bury: 'medium', sound: 'on', tide: 'off', bg: 'rocky' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('sandbox-settings') || '{}')); } catch (e) {}
 function saveSettings() { try { localStorage.setItem('sandbox-settings', JSON.stringify(settings)); } catch (e) {} }
 // sand bed thickness and the sand left over each toy, in screen px
@@ -232,7 +236,8 @@ let h, c, dh, cin, outm, act, firm, wet, thr, img, img32;
 let u, v, pu, pv, qin, sh; // flow velocity, incoming momentum, shadow height
 let base, objId, sf, wat, dw, dsand; // buried-toy floor height, toy id per cell, surface, water
 let waterTotal = 0;
-let kr, kg, kb, kir, kig, kib, dyeUsed = false; // grain colour (dye) multipliers per cell, and their inflow accumulators
+let kr, kg, kb, kir, kig, kib, dyeUsed = false;
+let windX, windY, windOn = false; // the fan's wind, as an extra downhill push on loose sand // grain colour (dye) multipliers per cell, and their inflow accumulators
 let FINGER_R = 16, STAMP_R = 60, OBJ_R = 56;
 let wetActive = false;
 
@@ -288,6 +293,7 @@ function resize() {
   W = nW; H = nH; N = W * H; CELL = newCell; cssW = nw; cssH = nh;
   h = fresh.h; c = fresh.c; firm = fresh.firm; wet = fresh.wet; kr = fresh.kr; kg = fresh.kg; kb = fresh.kb;
   kir = new Float32Array(N); kig = new Float32Array(N); kib = new Float32Array(N);
+  windX = new Float32Array(N); windY = new Float32Array(N); windOn = false;
   dh = new Float32Array(N); cin = new Float32Array(N); outm = new Float32Array(N);
   thr = new Float32Array(N); act = new Uint8Array(N);
   u = new Float32Array(N); v = new Float32Array(N); pu = new Float32Array(N); pv = new Float32Array(N);
@@ -364,7 +370,7 @@ function relax(tx, ty, agit) {
   // Gravity along the slope (terrain + phone tilt) accelerates it; Coulomb
   // friction (the angle of repose) brakes it. Sand speeds up, surges, piles
   // against walls and stops - like a real avalanche.
-  const u_ = u, v_ = v, pu_ = pu, pv_ = pv, qin_ = qin, G = P.G, L = P.mobile, VM = P.vmax;
+  const u_ = u, v_ = v, pu_ = pu, pv_ = pv, qin_ = qin, G = P.G, L = P.mobile, VM = P.vmax, wOn = windOn, wX = windX, wY = windY;
   pu_.fill(0); pv_.fill(0); qin_.fill(0);
   for (let y = 0; y < hgt; y++) {
     const row = y * w, up = y > 0 ? -w : 0, dn = y < hgt - 1 ? w : 0, gyk = (up && dn) ? 0.5 : 1;
@@ -373,7 +379,8 @@ function relax(tx, ty, agit) {
       let ui = u_[i], vi = v_[i];
       if (hi < 0.03) { u_[i] = v_[i] = 0; continue; }
       const lf = x > 0 ? -1 : 0, rt = x < Wm ? 1 : 0, gxk = (lf && rt) ? 0.5 : 1;
-      const sx = tx - (sf_[i + rt] - sf_[i + lf]) * gxk, sy = ty - (sf_[i + dn] - sf_[i + up]) * gyk;
+      let sx = tx - (sf_[i + rt] - sf_[i + lf]) * gxk, sy = ty - (sf_[i + dn] - sf_[i + up]) * gyk;
+      if (wOn) { sx += wX[i]; sy += wY[i]; }
       const mu = thr_[i];
       const sp = Math.sqrt(ui * ui + vi * vi);
       if (sp > 1e-3) {
@@ -548,8 +555,8 @@ function spawnDrop(x, y, z, vx, vy, vz, m) {
 function landDrop(p, i) {
   wat[i] += p.m; waterTotal += p.m;
   wet[i] = 1; wetActive = true; firm[i] *= 0.6; act[i] = 1;
-  if (h[i] > 0.05 && wat[i] < 2) { // the jet blasts sand out of a crater (deep water cushions it)
-    const e = Math.min(h[i], 0.06 * (1 - wat[i] * 0.4));
+  if (h[i] > 0.05 && wat[i] < 0.6) { // the jet blasts a small crater; once water collects it cushions the jet and the hole fills
+    const e = Math.min(h[i], 0.05 * (1 - wat[i] / 0.6));
     const a = Math.atan2(p.vy, p.vx) + (Math.random() - 0.5) * 2.2, d = 2 + Math.random() * 4;
     const x = Math.round(p.x + Math.cos(a) * d), y = Math.round(p.y + Math.sin(a) * d);
     if (x >= 0 && y >= 0 && x < W && y < H) { const j = y * W + x; h[i] -= e; h[j] += e; act[j] = 1; firm[j] = 0; }
@@ -1181,12 +1188,15 @@ function hoseStep() {
   let n = 0;
   for (const p of pointers.values()) {
     if (p.tool !== 'hose') continue; n++;
-    const nx = p.x / CELL, ny = (p.y - 30) / CELL;
-    if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+    // the nozzle sits just below the finger and arcs the water onto the spot just past the fingertip
+    const nx = p.x / CELL, ny = Math.min(H - 1, (p.y + 30) / CELL);
+    if (nx < 0 || nx >= W || p.y < 0 || p.y >= cssH) continue;
+    const tgx = p.x / CELL, tgy = Math.max(0, (p.y - 14) / CELL);
     const z0 = h[(ny | 0) * W + (nx | 0)] + base[(ny | 0) * W + (nx | 0)] + 8;
     for (let k = 0; k < 26; k++) {
-      const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.4, sp = (2.4 + Math.random() * 1.4) / CELL;
-      spawnDrop(nx + (Math.random() - 0.5) * 0.6, ny, z0, Math.cos(a) * sp, Math.sin(a) * sp, 1.0 + Math.random() * 0.7, 0.09);
+      const T = 12 + Math.random() * 3, a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()) * 6 / CELL;
+      const ex = tgx + Math.cos(a) * rr, ey = tgy + Math.sin(a) * rr;
+      spawnDrop(nx + (Math.random() - 0.5) * 0.5, ny, z0, (ex - nx) / T, (ey - ny) / T, 1.1 + Math.random() * 0.4, 0.12);
     }
   }
   return n;
@@ -1198,13 +1208,13 @@ function drawHoses() {
     ctx.lineCap = 'round';
     const hose = (lw, col) => {
       ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath();
-      ctx.moveTo(cssW * 0.5, cssH + 40); ctx.bezierCurveTo(cssW * 0.5, cssH - 20, x, y + 90, x, y + 12); ctx.stroke();
+      ctx.moveTo(cssW * 0.5, cssH + 40); ctx.bezierCurveTo(cssW * 0.5, cssH - 20, x, y + 120, x, y + 70); ctx.stroke();
     };
     hose(17, 'rgba(0,0,0,0.18)'); hose(15, '#2e8a3a'); hose(10, '#48b955'); hose(3, 'rgba(255,255,255,0.35)');
-    ctx.fillStyle = '#6b3d10'; ctx.fillRect(x - 10, y - 32, 20, 48);
-    ctx.fillStyle = '#ffc531'; ctx.fillRect(x - 8, y - 30, 16, 44);
-    ctx.fillStyle = '#ff8a1f'; ctx.fillRect(x - 6, y - 36, 12, 10);
-    ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fillRect(x - 6, y - 28, 4, 38);
+    ctx.fillStyle = '#6b3d10'; ctx.fillRect(x - 10, y + 28, 20, 46);
+    ctx.fillStyle = '#ffc531'; ctx.fillRect(x - 8, y + 30, 16, 42);
+    ctx.fillStyle = '#ff8a1f'; ctx.fillRect(x - 6, y + 22, 12, 10);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fillRect(x - 6, y + 32, 4, 36);
   }
 }
 
@@ -1408,6 +1418,135 @@ function dyeStep(now) {
   return n;
 }
 
+// ---------- the desk fan: blow into the microphone to make it spin ----------
+let fan = null; // { x, y, ang, speed, spin }
+const FAN_R = 30;          // touch radius of the fan body (px)
+const mic = { on: false, failed: false, an: null, buf: null, stream: null, level: 0 };
+async function startMic() {
+  if (mic.on || mic.failed || mic.starting) return;
+  mic.starting = true;
+  try {
+    sound.init();
+    const a = sound.ctx();
+    const st = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    const src = a.createMediaStreamSource(st);
+    const lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 500; // breath is a low rumble on a mic; speech much less so
+    const an = a.createAnalyser(); an.fftSize = 1024;
+    const mute = a.createGain(); mute.gain.value = 0;
+    src.connect(lp); lp.connect(an); an.connect(mute); mute.connect(a.destination);
+    Object.assign(mic, { an, buf: new Float32Array(an.fftSize), stream: st, on: true });
+  } catch (e) { mic.failed = true; }
+  mic.starting = false;
+}
+function stopMic() {
+  if (mic.stream) mic.stream.getTracks().forEach(t => t.stop());
+  Object.assign(mic, { on: false, an: null, stream: null, level: 0 });
+}
+function micBlow() {
+  if (!mic.on) return 0;
+  mic.an.getFloatTimeDomainData(mic.buf);
+  let sum = 0; for (let i = 0; i < mic.buf.length; i++) sum += mic.buf[i] * mic.buf[i];
+  const rms = Math.sqrt(sum / mic.buf.length);
+  mic.level = mic.level * 0.6 + rms * 0.4;
+  const b = (mic.level - 0.035) / 0.12;
+  return b < 0 ? 0 : b > 1 ? 1 : b;
+}
+function placeFan() {
+  if (!fan) fan = { x: cssW * 0.5, y: cssH * 0.78, ang: -Math.PI / 2, speed: 0, spin: 0 };
+}
+let keyBlow = false;
+window.addEventListener('keydown', e => { if (e.key === 'f') keyBlow = true; });
+window.addEventListener('keyup', e => { if (e.key === 'f') keyBlow = false; });
+// Each frame: spin the fan up or down, build the wind field, and kick dust into the air.
+function fanStep(now) {
+  if (!fan) { if (windOn) { windX.fill(0); windY.fill(0); windOn = false; } return 0; }
+  let target = Math.max(micBlow(), keyBlow ? 1 : 0);
+  for (const p of pointers.values()) if (p.tool === 'fan' && p.mode === 'move' && !mic.on) target = 1; // no mic: hold the fan to run it
+  fan.speed += (target - fan.speed) * (target > fan.speed ? 0.08 : 0.025);
+  if (fan.speed < 0.01) fan.speed = 0;
+  fan.spin += fan.speed * 0.9;
+  windX.fill(0); windY.fill(0);
+  windOn = fan.speed > 0.03;
+  if (!windOn) return 0;
+  const dx = Math.cos(fan.ang), dy = Math.sin(fan.ang);
+  const nxp = fan.x + dx * 22, nyp = fan.y + dy * 22;             // the front of the fan
+  const Lmax = Math.max(cssW, cssH) * 0.65, spread = Math.tan(0.4), S = 2.0 * fan.speed;
+  for (let y = 0; y < H; y++) {
+    const py = y * CELL - nyp;
+    for (let x = 0, i = y * W; x < W; x++, i++) {
+      const px = x * CELL - nxp;
+      const along = px * dx + py * dy; if (along <= 0 || along >= Lmax) continue;
+      const across = Math.abs(px * dy - py * dx), half = 26 + along * spread;
+      if (across >= half) continue;
+      const a2 = across / half, w = S * (1 - along / Lmax) * (1 - a2 * a2);
+      const d = Math.hypot(px, py) || 1; // the jet fans out slightly
+      windX[i] = w * (dx * 0.8 + (px / d) * 0.2); windY[i] = w * (dy * 0.8 + (py / d) * 0.2);
+    }
+  }
+  // saltation: grains hop downwind from where the wind is strongest
+  for (let k = 0; k < 40 * fan.speed; k++) {
+    const along = Math.random() * Lmax * 0.6, across = (Math.random() - 0.5) * 2 * (26 + along * spread);
+    const gx = (nxp + dx * along - dy * across) / CELL, gy = (nyp + dy * along + dx * across) / CELL;
+    if (gx < 0 || gy < 0 || gx >= W || gy >= H) continue;
+    const i = (gy | 0) * W + (gx | 0), w = Math.hypot(windX[i], windY[i]);
+    if (w < 0.9 || h[i] < 0.3 || firm[i] > 0.3 || wet[i] > 0.5 || wat[i] > 0.05) continue;
+    const m = Math.min(0.06, h[i] * 0.05); h[i] -= m;
+    const sp = w * 1.6;
+    spawnGrain(gx, gy, h[i] + base[i] + 0.3, dx * sp + (Math.random() - 0.5) * 0.3, dy * sp + (Math.random() - 0.5) * 0.3, 0.5 + Math.random() * 0.8, m, c[i], kr[i], kg[i], kb[i]);
+  }
+  return fan.speed;
+}
+function drawFan(now) {
+  if (!fan) return;
+  const f = fan, dx = Math.cos(f.ang), dy = Math.sin(f.ang);
+  // where it points: a faint cone while the fan tool is chosen and it's still, streaks of air when it blows
+  if (tool === 'fan' && f.speed < 0.2) {
+    ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.ang);
+    ctx.setLineDash([5, 7]); ctx.lineDashOffset = -now / 50; ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(26, -26); ctx.lineTo(150, -26 - 124 * Math.tan(0.4)); ctx.moveTo(26, 26); ctx.lineTo(150, 26 + 124 * Math.tan(0.4)); ctx.stroke();
+    ctx.setLineDash([]); ctx.restore();
+  }
+  if (f.speed > 0.05) {
+    ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.ang); ctx.lineCap = 'round';
+    const L = Math.max(cssW, cssH) * 0.55;
+    for (let k = 0; k < 14; k++) {
+      const ph = (now * 0.0011 * (0.6 + f.speed) + k * 0.618) % 1, along = 26 + ph * L;
+      const across = (((k * 0.37) % 1) - 0.5) * 2 * (20 + along * Math.tan(0.35));
+      ctx.strokeStyle = `rgba(255,255,255,${(0.55 * (1 - ph) * f.speed).toFixed(3)})`; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(along, across); ctx.lineTo(along + 18 + 14 * f.speed, across); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.ang);
+  ctx.fillStyle = 'rgba(40,25,10,0.28)'; ctx.beginPath(); ctx.ellipse(-4, 8, 34, 30, 0, 0, Math.PI * 2); ctx.fill(); // shadow
+  ctx.fillStyle = '#4f5a64'; roundRect(-36, -20, 24, 40, 8); ctx.fill();                                          // heavy base
+  ctx.fillStyle = '#6c7884'; ctx.fillRect(-16, -5, 14, 10);                                                       // neck
+  const mg = ctx.createRadialGradient(-12, -6, 2, -6, 0, 14); mg.addColorStop(0, '#ffffff'); mg.addColorStop(1, '#9fb3c4');
+  ctx.fillStyle = mg; ctx.beginPath(); ctx.arc(-6, 0, 12, 0, Math.PI * 2); ctx.fill();                          // motor
+  // blades seen from above: they sweep up and down inside the cage as they turn
+  for (let k = 0; k < 3; k++) {
+    const th = f.spin + k * Math.PI * 2 / 3, yy = 22 * Math.sin(th), depth = Math.cos(th);
+    ctx.fillStyle = `rgba(58,160,240,${(0.55 + 0.4 * depth).toFixed(3)})`;
+    ctx.beginPath(); ctx.ellipse(10 + depth * 2, yy, 4, 9, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  if (f.speed > 0.4) { ctx.fillStyle = `rgba(120,200,255,${(f.speed * 0.45).toFixed(3)})`; ctx.beginPath(); ctx.ellipse(10, 0, 6, 27, 0, 0, Math.PI * 2); ctx.fill(); }
+  ctx.strokeStyle = '#e8eef3'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.ellipse(10, 0, 9, 31, 0, 0, Math.PI * 2); ctx.stroke(); // cage
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.2;
+  for (const yy of [-20, -10, 0, 10, 20]) { ctx.beginPath(); ctx.moveTo(4, yy); ctx.lineTo(17, yy); ctx.stroke(); }  // grille
+  ctx.restore();
+  // a little "blow!" hint bubble while the fan tool is chosen and nothing is happening
+  if (tool === 'fan' && f.speed < 0.05 && mic.on) {
+    const t = (now / 600) % 1;
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    for (let k = 0; k < 3; k++) { const ph = (t + k / 3) % 1; ctx.globalAlpha = 1 - ph; ctx.beginPath(); ctx.arc(f.x - 40 - ph * 18, f.y - 34 - ph * 14, 3 + ph * 4, 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+}
+function roundRect(x, y, w, h2, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h2, r); ctx.arcTo(x + w, y + h2, x, y + h2, r);
+  ctx.arcTo(x, y + h2, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
 // ---------- the wave (smooth + re-level) ----------
 let wave = null;
 function startWave() {
@@ -1545,6 +1684,7 @@ function render(now) {
   drawWave();
   drawFinds(now);
   drawAnims(now);
+  drawFan(now);
   drawHoses();
   drawScoopRings(now);
   drawShovels(now);
@@ -1553,7 +1693,7 @@ function render(now) {
 
 // ---------- sound ----------
 const sound = (() => {
-  let a = null, master = null, scrape, pour, flow, spray, noise, muted = settings.sound === 'off';
+  let a = null, master = null, scrape, pour, flow, spray, fanG, noise, muted = settings.sound === 'off';
   function chain(type, f, q) {
     const s = a.createBufferSource(); s.buffer = noise; s.loop = true;
     const fl = a.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
@@ -1570,7 +1710,7 @@ const sound = (() => {
         const d = noise.getChannelData(0);
         for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (Math.random() < 0.3 ? 1 : 0.35); // crackly grain noise
         master = a.createGain(); master.gain.value = muted ? 0 : 0.9; master.connect(a.destination);
-        scrape = chain('bandpass', 1500, 0.8); pour = chain('bandpass', 3400, 1.1); flow = chain('lowpass', 1100, 0.6); spray = chain('highpass', 2600, 0.5);
+        scrape = chain('bandpass', 1500, 0.8); pour = chain('bandpass', 3400, 1.1); flow = chain('lowpass', 1100, 0.6); spray = chain('highpass', 2600, 0.5); fanG = chain('bandpass', 420, 0.8);
       } catch (e) { a = null; }
     },
     levels(sc, po, fl, spr) {
@@ -1635,6 +1775,8 @@ const sound = (() => {
       const g = a.createGain(); g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
       s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()); s.stop(t + 0.3);
     },
+    ctx() { return a; },
+    fanLevel(v) { if (a && fanG) fanG.gain.setTargetAtTime(v, a.currentTime, 0.1); },
     setMuted(m) { muted = m; if (master) master.gain.value = muted ? 0 : 0.9; },
     suspend() { if (a && a.state === 'running') a.suspend(); },
     resume() { if (a && a.state === 'suspended') a.resume(); },
@@ -1657,6 +1799,12 @@ cv.addEventListener('pointerdown', e => {
   if (tool === 'stamp') pickUpStamp(e.pointerId, stampType, x, y);
   else if (tool === 'shovel') startShovel(e.pointerId, x, y);
   else if (tool === 'hand') plow(x / CELL, y / CELL, 0, 0, 0);
+  else if (tool === 'fan') {
+    const p = pointers.get(e.pointerId);
+    if (!fan) { placeFan(); fan.x = x; fan.y = y; }
+    if (Math.hypot(x - fan.x, y - fan.y) < FAN_R + 8) { p.mode = 'move'; p.ox = fan.x - x; p.oy = fan.y - y; } // grab it
+    else { p.mode = 'aim'; fan.ang = Math.atan2(y - fan.y, x - fan.x); }                              // point it
+  }
 });
 
 cv.addEventListener('pointermove', e => {
@@ -1665,6 +1813,10 @@ cv.addEventListener('pointermove', e => {
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
   for (const ev of (evs.length ? evs : [e])) {
     const [x, y] = localXY(ev), now = performance.now();
+    if (p.tool === 'fan' && fan) {
+      if (p.mode === 'move') { fan.x = x + p.ox; fan.y = y + p.oy; }
+      else fan.ang = Math.atan2(y - fan.y, x - fan.x);
+    }
     if (p.tool === 'hand') {
       const dx = x - p.x, dy = y - p.y, dist = Math.hypot(dx, dy);
       if (dist < 0.5) continue;
@@ -1680,7 +1832,14 @@ cv.addEventListener('pointermove', e => {
   }
 });
 
-function endPointer(e) { pointers.delete(e.pointerId); }
+function endPointer(e) {
+  const p = pointers.get(e.pointerId);
+  if (p && p.tool === 'fan' && p.mode === 'move' && fan) { // dragged off the sandbox: put the fan away
+    if (fan.x < -10 || fan.y < -10 || fan.x > cssW + 10 || fan.y > cssH + 10) { fan = null; stopMic(); }
+    else { fan.x = Math.max(20, Math.min(cssW - 20, fan.x)); fan.y = Math.max(20, Math.min(cssH - 20, fan.y)); }
+  }
+  pointers.delete(e.pointerId);
+}
 
 // carried stamps follow the finger anywhere (including straight off a toolbar button)
 window.addEventListener('pointermove', e => {
@@ -1792,6 +1951,18 @@ function drawStampIcon() {
 }
 drawStampIcon();
 const stampBtn = mkBtn(toolsRow, stampIcon, 'Stamps', b => { tool = 'stamp'; select(b); dyesRow.classList.remove('open'); stampsRow.classList.toggle('open'); });
+{
+  const ic = document.createElement('canvas'); ic.width = ic.height = 128;
+  const g = ic.getContext('2d');
+  g.fillStyle = '#4f5a64'; g.beginPath(); g.ellipse(64, 116, 34, 9, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#6c7884'; g.fillRect(58, 70, 12, 44);
+  g.fillStyle = '#d9eefc'; g.beginPath(); g.arc(64, 54, 46, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#3aa0f0';
+  for (let k = 0; k < 3; k++) { g.save(); g.translate(64, 54); g.rotate(k * Math.PI * 2 / 3 + 0.3); g.beginPath(); g.ellipse(0, -21, 13, 22, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
+  g.fillStyle = '#ffffff'; g.beginPath(); g.arc(64, 54, 9, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#8fa3b3'; g.lineWidth = 5; g.beginPath(); g.arc(64, 54, 46, 0, Math.PI * 2); g.stroke();
+  mkBtn(toolsRow, ic, 'Desk fan: blow into the microphone', b => { tool = 'fan'; select(b); closeStamps(); placeFan(); startMic(); });
+}
 mkBtn(toolsRow, '🌊', 'Smooth the sand', b => { startWave(); closeStamps(); }, 'action');
 
 for (const t of STAMPS) {
@@ -1830,6 +2001,39 @@ async function askMotion() {
   } catch (e) {}
 }
 
+// ---------- the rocky ground around the sandbox (drawn once per screen size) ----------
+let rockKey = '';
+function applyBackground() {
+  document.body.classList.toggle('sky', settings.bg === 'sky');
+  const meta = document.querySelector('meta[name=theme-color]');
+  if (meta) meta.content = settings.bg === 'sky' ? '#5cc4ea' : '#3a342f';
+  if (settings.bg === 'sky') return;
+  const w = Math.ceil(innerWidth), hgt = Math.ceil(innerHeight), key = w + 'x' + hgt;
+  if (key === rockKey) return; rockKey = key;
+  const cnv = document.createElement('canvas'), sc = Math.min(2, devicePixelRatio || 1);
+  cnv.width = w * sc; cnv.height = hgt * sc;
+  const g = cnv.getContext('2d'); g.scale(sc, sc);
+  g.fillStyle = '#332d29'; g.fillRect(0, 0, w, hgt);
+  const n = Math.round(w * hgt / 260);
+  for (let k = 0; k < n; k++) { // pebbles and stones, lit from the top-left like the sand
+    const x = Math.random() * w, y = Math.random() * hgt, r = 3 + Math.pow(Math.random(), 2.2) * 26;
+    const rx = r * (0.75 + Math.random() * 0.5), ry = r * (0.6 + Math.random() * 0.4), rot = Math.random() * Math.PI;
+    const hue = 18 + Math.random() * 22, sat = 5 + Math.random() * 12, lit = 20 + Math.random() * 22;
+    g.save(); g.translate(x, y); g.rotate(rot);
+    g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(r * 0.18, r * 0.22, rx, ry, 0, 0, Math.PI * 2); g.fill();
+    const gr = g.createRadialGradient(-rx * 0.35, -ry * 0.4, r * 0.1, 0, 0, r * 1.1);
+    gr.addColorStop(0, `hsl(${hue},${sat}%,${lit + 14}%)`); gr.addColorStop(0.6, `hsl(${hue},${sat}%,${lit}%)`); gr.addColorStop(1, `hsl(${hue},${sat}%,${lit - 9}%)`);
+    g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+  const id = g.getImageData(0, 0, cnv.width, cnv.height), d = id.data; // gritty speckle
+  for (let i = 0; i < d.length; i += 4) { const v = (Math.random() - 0.5) * 22; d[i] += v; d[i + 1] += v; d[i + 2] += v; }
+  g.putImageData(id, 0, 0);
+  document.body.style.backgroundImage = `url(${cnv.toDataURL('image/jpeg', 0.85)})`;
+}
+applyBackground();
+window.addEventListener('resize', () => setTimeout(applyBackground, 300));
+
 // ---------- grown-up settings panel (press and hold the gear) ----------
 const gear = document.getElementById('gear'), panel = document.getElementById('settings');
 let holdTimer = 0, buryWhenOpened = settings.bury;
@@ -1850,6 +2054,7 @@ panel.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', a
   settings[key] = b.dataset.v; saveSettings();
   b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
   if (key === 'sound') sound.setMuted(settings.sound === 'off');
+  if (key === 'bg') applyBackground();
   if (key === 'motion') {
     if (settings.motion === 'on') { await askMotion(); needCal = true; }
     else { tiltX = tiltY = 0; agit = 0; }
@@ -1879,6 +2084,8 @@ function frame(now) {
   const spraying = hoseStep();
   const dyeing = dyeStep(now);
   growShovels(now);
+  const fanning = fanStep(now);
+  sound.fanLevel(fanning * 0.3);
   const dumping = dumpStep();
   stepWave();
   flowThisFrame = 0;

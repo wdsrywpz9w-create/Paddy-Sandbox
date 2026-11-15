@@ -10,7 +10,8 @@ A phone-browser sand tray for toddlers. No install, no ads, no text to read. It 
 | 🪣 | Hold a finger down to pour a stream of sand that builds a cone-shaped pile. |
 | Shovel | Press to scoop up a shovelful of sand (leaving a hole). Keep holding still and the scoop keeps digging wider and deeper for about 1.5 seconds, up to about 3× as wide and 11× as much sand: a marching dashed ring shows the scoop's edge and a yellow ring fills up (turning green with a pop when it's full). Then drag the loaded shovel anywhere and let go to tip it out into a new pile. |
 | Dye drop | Opens a palette of colours (red, orange, yellow, green, blue, purple, pink and rainbow). Rub a finger on the sand to squirt coloured dye that stains the grains. Dyed sand keeps its colour when it slides, gets dug, stamped or shovelled. The 🌊 wave washes the colours out. |
-| Hose (green coil) | Hold a finger down to spray water just above it. The jet blasts out a crater, the water pools in hollows, runs downhill (tilt the phone to slosh it), carves little channels and slowly soaks in, leaving dark wet sand. |
+| Hose (green coil) | Hold a finger down to spray water onto the spot just past the fingertip (the nozzle sits just below the finger). The first splashes blast a small crater; once water collects it cushions the jet, so holes, moats and trenches fill up and stay full for a while before soaking in. Water runs downhill (tilt the phone to slosh it), carves little channels and leaves dark wet sand. |
+| Desk fan | Puts a desk fan on the sand (the phone asks to use the microphone the first time). **Blow into the microphone** and the fan spins up and blows sand away from where it points: loose sand slides and hops downwind and piles into little dunes, while wet or packed sand resists. With the fan button chosen, touch the fan to drag it somewhere else, or touch anywhere else to point it that way. Drag it off the edge of the sandbox to put it away (and switch the microphone off). If the microphone isn't available, pressing and holding the fan runs it instead. |
 | 🌊 | A wave washes over the tray, leaves it flat and wet, buries a new set of dinosaurs, and re-levels the tilt (see below). |
 | 🐢 (stamp button) | Opens the six stamps (🐢 ⭐ 🐚 🐟 🦀 ❤️). Drag a stamp off its button onto the sand, or pick one and touch the sand. The stamp lifts up and follows the finger, then presses in where the finger lets go. |
 
@@ -51,12 +52,14 @@ Real sand needs about 35° of tilt to slide. The tilt-sensitivity setting makes 
   - **Tilt sensitivity:** *Low* (the default; flat sand starts to slide at about 50° of tilt and only a hard shake counts), *Medium* (about 42°) or *High* (about 34°, close to real sand). Piles and steep walls give way a little sooner.
   - **Buried dinosaurs:** *Off* (no toys), *Shallow* (just under the surface, easy finds), *Medium*, *Deep* (thick sand, faint lumps) or *Hidden* (buried under dead-flat sand with no lumps at all, so finding them is pure exploring). Changing it washes the tray smooth and buries a new set.
   - **Water in low spots (for moats):** *Off*, *Low* or *High*. Like digging near the sea: any hole, trench or moat dug below the water table slowly fills with seep-in water, and drains back if filled in. *Low* needs a deep dig; *High* fills even shallow scrapes and dune hollows. The water stays level with real gravity, so tilting sloshes moats toward the low side.
+  - **Background:** *Rocky* (the default: dark pebbles around the sandbox) or *Sky blue*.
   - **Sound:** on or off.
 
 - **Level calibration:** the way the phone is held when you tap the start button (or 🌊) counts as "flat". Hold it the way your child will.
 - **Keep them in the app:** add it to the home screen to remove the browser bars. To lock the phone to this one app, use **Guided Access** on iPhone (Settings → Accessibility) or **App pinning** on Android.
 - **iPhone motion permission:** iOS asks for permission to use motion sensors the first time. Tilt needs that permission, and it only works over `https://`.
-- **Desktop testing:** the arrow keys tilt the tray and `s` shakes it.
+- **Desktop testing:** the arrow keys tilt the tray, `s` shakes it and holding `f` blows the fan.
+- **Microphone:** it's only switched on while a fan is on the sand, and it's only used to measure how hard someone is blowing. Nothing is recorded or sent anywhere. On some iPhones, sound from the app plays a little quieter while the microphone is on.
 
 ## Hosting
 
