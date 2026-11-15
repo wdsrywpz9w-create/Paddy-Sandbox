@@ -35,7 +35,7 @@ On every frame:
 
 1. **Avalanching.** Sand moves to any of its 8 neighbours when the slope between them is steeper than the *angle of repose* (about 36° for still sand, 28° for sand that is already moving, which keeps an avalanche going once it starts). The slope is measured against the phone's real gravity vector, so tilting the phone changes which way is downhill.
 2. **Flow with momentum.** The surface layer of each column has a velocity. Gravity along the slope (terrain plus phone tilt) speeds it up, and friction at the angle of repose slows it down. Sand surges downhill, carries on a little, piles against the walls and comes to rest. Sand shoved by a finger or landing from the air brings its momentum with it.
-3. **Water.** Water flows toward lower water level, including phone tilt. Moving water drags sand downhill, so it erodes channels. Sand under standing water is saturated and slumps. Water soaks into the sand over time.
+3. **Water.** Water flows toward lower water level, including phone tilt (real tilt, not the exaggerated sand tilt). With the water table on, any spot whose surface is below the table seeps full of water. Moving water drags sand downhill, so it erodes channels. Sand under standing water is saturated and slumps. Water soaks into the sand over time.
 4. **Airborne grains and droplets.** Poured and flicked grains, and the hose's droplets, are individual particles. They fall under gravity, cast shadows and join the sand where they land.
 
 Sand is conserved: anything dug or stamped out is pushed into ridges and rims, and nothing disappears. The only exception is the 🪣, which adds sand.
@@ -49,6 +49,7 @@ Tilt is deliberately about 2× more sensitive than a real sand tray. Real sand n
 - **Settings:** press and hold the ⚙️ in the top corner for about a second; a quick tap does nothing, so little fingers won't open it. Settings are remembered on this phone:
   - **Tilt & shake:** turns the motion sensors off, so the sand stays put however the phone is held.
   - **How deep the dinosaurs are buried:** *Shallow* (toys just under the surface, easy finds), *Medium*, or *Deep* (a thick sand bed and only faint lumps). Changing it washes the tray smooth and buries a new set.
+  - **Water in low spots (for moats):** *Off*, *Low* or *High*. Like digging near the sea: any hole, trench or moat dug below the water table slowly fills with seep-in water, and drains back if filled in. *Low* needs a deep dig; *High* fills even shallow scrapes and dune hollows. The water stays level with real gravity, so tilting sloshes moats toward the low side.
   - **Sound:** on or off.
 
 - **Level calibration:** the way the phone is held when you tap the start button (or 🌊) counts as "flat". Hold it the way your child will.
