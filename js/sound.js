@@ -4,7 +4,7 @@
 
 // ---------- sound ----------
 const sound = (() => {
-  let a = null, master = null, scrape, pour, flow, spray, fanG, noise, muted = settings.sound === 'off';
+  let a = null, master = null, scrape, pour, flow, spray, fanG, rainG, engG, engOsc, noise, muted = settings.sound === 'off';
   function chain(type, f, q) {
     const s = a.createBufferSource(); s.buffer = noise; s.loop = true;
     const fl = a.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
@@ -21,7 +21,11 @@ const sound = (() => {
         const d = noise.getChannelData(0);
         for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (Math.random() < 0.3 ? 1 : 0.35); // crackly grain noise
         master = a.createGain(); master.gain.value = muted ? 0 : 0.9; master.connect(a.destination);
-        scrape = chain('bandpass', 1500, 0.8); pour = chain('bandpass', 3400, 1.1); flow = chain('lowpass', 1100, 0.6); spray = chain('highpass', 2600, 0.5); fanG = chain('bandpass', 420, 0.8);
+        scrape = chain('bandpass', 1500, 0.8); pour = chain('bandpass', 3400, 1.1); flow = chain('lowpass', 1100, 0.6); spray = chain('highpass', 2600, 0.5); fanG = chain('bandpass', 420, 0.8); rainG = chain('highpass', 1800, 0.4);
+        // a little toy-truck engine: a low buzzing oscillator through a soft filter
+        engOsc = a.createOscillator(); engOsc.type = 'sawtooth'; engOsc.frequency.value = 48;
+        const ef = a.createBiquadFilter(); ef.type = 'lowpass'; ef.frequency.value = 420;
+        engG = a.createGain(); engG.gain.value = 0; engOsc.connect(ef); ef.connect(engG); engG.connect(master); engOsc.start();
       } catch (e) { a = null; }
     },
     levels(sc, po, fl, spr) {
@@ -78,6 +82,27 @@ const sound = (() => {
       o.type = 'sine'; o.frequency.setValueAtTime(420, t); o.frequency.exponentialRampToValueAtTime(760, t + 0.1);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
       o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.2);
+    },
+    extras(rain, eng) {
+      if (!a) return; const t = a.currentTime;
+      rainG.gain.setTargetAtTime(rain, t, 0.15); engG.gain.setTargetAtTime(eng * 0.12, t, 0.08);
+      engOsc.frequency.setTargetAtTime(44 + eng * 30, t, 0.1);
+    },
+    step() {
+      if (!a || muted) return; const t = a.currentTime;
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(50, t + 0.12);
+      g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.2);
+    },
+    fanfare() {
+      if (!a || muted) return; const t = a.currentTime;
+      [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5, 1318.5].forEach((fq, k) => {
+        const o = a.createOscillator(), g = a.createGain(), st = t + k * 0.12 + (k > 3 ? 0.12 : 0);
+        o.type = 'triangle'; o.frequency.value = fq;
+        g.gain.setValueAtTime(0.0001, st); g.gain.exponentialRampToValueAtTime(0.18, st + 0.02); g.gain.exponentialRampToValueAtTime(0.001, st + (k === 6 ? 0.9 : 0.35));
+        o.connect(g); g.connect(master); o.start(st); o.stop(st + 1);
+      });
     },
     scoop() {
       if (!a || muted) return; const t = a.currentTime;

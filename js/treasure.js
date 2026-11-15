@@ -4,7 +4,7 @@
 
 // ---------- buried treasure: dinosaurs! ----------
 const DINOS = ['trex', 'trike', 'stego', 'longneck', 'ptero'];
-const EXTRAS = ['egg', 'bone'];
+const EXTRAS = ['egg', 'bone', 'chest', 'gem', 'ammonite'];
 const DINOPAL = {
   trex:     { a: '#62c04c', b: '#3e8e32' },
   trike:    { a: '#ff9b3d', b: '#d9652a' },
@@ -13,6 +13,9 @@ const DINOPAL = {
   ptero:    { a: '#ef5f7a', b: '#ffb35c' },
   egg:      { a: '#f6edd2', b: '#8cc86a' },
   bone:     { a: '#f3efe2', b: '#cfc6ad' },
+  chest:    { a: '#9a5a2a', b: '#f2c230' },
+  gem:      { a: '#3fc9e8', b: '#a8f0ff' },
+  ammonite: { a: '#d9b98a', b: '#a8835a' },
 };
 
 // Toy dinosaurs lying on their sides (side view), unit size ~[-1, 1].
@@ -110,6 +113,35 @@ function drawDino(g, type, p, solid) {
       g.beginPath(); g.moveTo(-0.35, 0.12); g.lineTo(0.35, -0.24); g.stroke();
       break;
     }
+    case 'chest': { // a treasure chest with a gold band and lock
+      g.fillStyle = A; g.fillRect(-0.72, -0.35, 1.44, 0.85);
+      g.fillStyle = solid || '#7b4520'; g.beginPath(); g.moveTo(-0.72, -0.35); g.quadraticCurveTo(0, -0.95, 0.72, -0.35); g.closePath(); g.fill();
+      g.fillStyle = B; g.fillRect(-0.72, -0.4, 1.44, 0.12); g.fillRect(-0.5, -0.8, 0.12, 1.3); g.fillRect(0.38, -0.8, 0.12, 1.3);
+      g.fillStyle = B; g.fillRect(-0.12, -0.3, 0.24, 0.3);
+      g.fillStyle = solid || '#3a2410'; dotc(g, 0, -0.17, 0.05);
+      g.fillStyle = solid || '#ffe680'; dotc(g, -0.25, -0.62, 0.07); dotc(g, 0.2, -0.66, 0.06); // gold peeking out
+      break;
+    }
+    case 'gem': { // a big cut crystal
+      const pts = [[0, -0.9], [0.62, -0.35], [0.45, 0.75], [-0.45, 0.75], [-0.62, -0.35]];
+      g.fillStyle = A; g.beginPath(); pts.forEach((q, k) => k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.fill();
+      g.fillStyle = B; g.beginPath(); g.moveTo(0, -0.9); g.lineTo(0.62, -0.35); g.lineTo(0, -0.1); g.lineTo(-0.62, -0.35); g.closePath(); g.fill();
+      g.strokeStyle = solid || 'rgba(255,255,255,0.7)'; g.lineWidth = 0.04;
+      g.beginPath(); g.moveTo(0, -0.1); g.lineTo(-0.2, 0.75); g.moveTo(0, -0.1); g.lineTo(0.2, 0.75); g.stroke();
+      break;
+    }
+    case 'ammonite': { // a spiral fossil shell
+      g.fillStyle = A; dotc(g, 0, 0, 0.8);
+      g.strokeStyle = B; g.lineWidth = 0.07;
+      g.beginPath();
+      for (let k = 0; k <= 160; k++) { const a = k * 0.1, r = 0.06 + a * 0.05; const x = Math.cos(a) * r, y = Math.sin(a) * r; k ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke();
+      g.save(); g.beginPath(); g.arc(0, 0, 0.78, 0, Math.PI * 2); g.clip(); // keep the ribs inside the shell
+      g.lineWidth = 0.035;
+      for (let k = 0; k < 22; k++) { const a = k * 0.72 + 4, r = 0.06 + a * 0.05; g.beginPath(); g.moveTo(Math.cos(a) * r, Math.sin(a) * r); g.lineTo(Math.cos(a) * (r + 0.28), Math.sin(a) * (r + 0.28)); g.stroke(); }
+      g.restore();
+      break;
+    }
   }
 }
 
@@ -145,19 +177,21 @@ function coverOver(i, hh) {
 }
 function placeObjects() {
   if (settings.bury === 'off') { objs = []; rasterizeObjects(); return; }
-  const pick = DINOS.slice().sort(() => Math.random() - 0.5).slice(0, 4);
-  pick.push(EXTRAS[(Math.random() * EXTRAS.length) | 0]);
+  // four dinosaurs plus two other treasures each round
+  const pick = DINOS.slice().sort(() => Math.random() - 0.5).slice(0, 4)
+    .concat(EXTRAS.slice().sort(() => Math.random() - 0.5).slice(0, 2));
   objs = [];
   const m = OBJ_R + 6, minD = OBJ_R * 2.05;
   for (const type of pick) {
     for (let tries = 0; tries < 300; tries++) {
       const x = m + Math.random() * (cssW - 2 * m), y = m + Math.random() * (cssH - 2 * m);
       if (objs.some(o => Math.hypot(o.fx * cssW - x, o.fy * cssH - y) < minD)) continue;
-      objs.push({ type, fx: x / cssW, fy: y / cssH, rot: (Math.random() - 0.5) * 1.2, found: false, cel: 0 });
+      objs.push({ type, fx: x / cssW, fy: y / cssH, rot: (Math.random() - 0.5) * 1.2, found: false, collected: false, cel: 0 });
       break;
     }
   }
   rasterizeObjects();
+  buildShelf();
 }
 function rasterizeObjects() {
   base.fill(0); objId.fill(0);
@@ -194,6 +228,7 @@ function checkFinds(now) {
     if (!o.found && f > 0.4) {
       o.found = true; o.cel = now;
       sound.found(DINOS.includes(o.type));
+      if (!o.collected) { o.collected = true; updateShelf(k); if (objs.every(q => q.collected)) allFound(now); }
       if (navigator.vibrate) try { navigator.vibrate([30, 60, 30]); } catch (e) {}
       const cx = o.fx * cssW, cy = o.fy * cssH;
       for (let s = 0; s < 22; s++) {
@@ -229,4 +264,42 @@ function drawFinds(now) {
     star(s.x, s.y, s.r * (1 - 0.4 * t / s.life));
   }
   ctx.globalAlpha = 1;
+}
+
+// ---------- the collection shelf: this round's toys, filling in as they're found ----------
+const shelf = document.getElementById('shelf');
+function iconFor(type, solid) {
+  const cnv = document.createElement('canvas'); cnv.width = cnv.height = 72;
+  const g = cnv.getContext('2d'); g.translate(36, 36);
+  if (solid) { g.scale(30, 30); drawDino(g, type, DINOPAL[type], solid); } else paintObj(g, type, 30, 0);
+  return cnv;
+}
+function buildShelf() {
+  if (!shelf) return;
+  shelf.innerHTML = '';
+  shelf.classList.toggle('hide', !objs.length);
+  shelf.classList.remove('done');
+  objs.forEach(o => {
+    const slot = document.createElement('div'); slot.className = 'slot';
+    slot.appendChild(iconFor(o.type, 'rgba(60,40,20,0.35)'));
+    shelf.appendChild(slot);
+  });
+}
+function updateShelf(k) {
+  const slot = shelf && shelf.children[k]; if (!slot) return;
+  slot.innerHTML = ''; slot.appendChild(iconFor(objs[k].type)); slot.classList.add('got');
+}
+// Every toy found: a shower of confetti and a fanfare, and the wave button wiggles to offer a new dig.
+function allFound(now) {
+  setTimeout(() => {
+    sound.fanfare();
+    shelf.classList.add('done');
+    const cols = ['#ff5c8a', '#ffd23f', '#4cc95a', '#3f8cf0', '#a35de6', '#ff9b3d', '#ffffff'];
+    for (let k = 0; k < 120; k++) {
+      sparkles.push({ x: Math.random() * cssW, y: -10 - Math.random() * 60, vx: (Math.random() - 0.5) * 2, vy: 1 + Math.random() * 3,
+                      t0: performance.now(), life: 1600 + Math.random() * 1400, r: 4 + Math.random() * 6, col: cols[k % cols.length] });
+    }
+    const wb = document.querySelector('[aria-label="Smooth the sand"]');
+    if (wb) { wb.classList.add('wiggle'); setTimeout(() => wb.classList.remove('wiggle'), 6000); }
+  }, 1200);
 }

@@ -49,7 +49,7 @@ function landDrop(p, i) {
   wat[i] += p.m; waterTotal += p.m;
   wet[i] = 1; wetActive = true; firm[i] *= 0.6; act[i] = 1;
   if (h[i] > 0.05 && wat[i] < 0.6) { // the jet blasts a small crater; once water collects it cushions the jet and the hole fills
-    const e = Math.min(h[i], 0.05 * (1 - wat[i] / 0.6));
+    const e = Math.min(h[i], (p.rain ? 0.012 : 0.05) * (1 - wat[i] / 0.6)); // raindrops only dimple the sand
     const a = Math.atan2(p.vy, p.vx) + (Math.random() - 0.5) * 2.2, d = 2 + Math.random() * 4;
     const x = Math.round(p.x + Math.cos(a) * d), y = Math.round(p.y + Math.sin(a) * d);
     if (x >= 0 && y >= 0 && x < W && y < H) { const j = y * W + x; h[i] -= e; h[j] += e; act[j] = 1; firm[j] = 0; }

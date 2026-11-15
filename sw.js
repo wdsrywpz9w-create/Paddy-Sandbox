@@ -1,5 +1,5 @@
 // Offline cache so the sandbox works without signal once it has been opened.
-const CACHE = 'sandbox-v12';
+const CACHE = 'sandbox-v13';
 const FILES = [
   './',
   'index.html',
@@ -17,12 +17,16 @@ const FILES = [
   'js/input.js',
   'js/main.js',
   'js/motion.js',
+  'js/mould.js',
   'js/particles.js',
+  'js/prints.js',
+  'js/rain.js',
   'js/render.js',
   'js/shovel.js',
   'js/sound.js',
   'js/stamps.js',
   'js/treasure.js',
+  'js/truck.js',
   'js/ui.js',
   'js/water.js',
   'js/wave.js',

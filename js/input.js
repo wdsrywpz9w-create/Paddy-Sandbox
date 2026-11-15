@@ -18,6 +18,9 @@ cv.addEventListener('pointerdown', e => {
   if (tool === 'stamp') pickUpStamp(e.pointerId, stampType, x, y);
   else if (tool === 'shovel') startShovel(e.pointerId, x, y);
   else if (tool === 'hand') plow(x / CELL, y / CELL, 0, 0, 0);
+  else if (tool === 'prints') startPrints(pointers.get(e.pointerId));
+  else if (tool === 'truck') placeTruck();
+  else if (tool === 'mould') sound.pickup();
   else if (tool === 'fan') {
     const p = pointers.get(e.pointerId);
     if (!fan) { placeFan(); fan.x = x; fan.y = y; }
@@ -36,6 +39,7 @@ cv.addEventListener('pointermove', e => {
       if (p.mode === 'move') { fan.x = x + p.ox; fan.y = y + p.oy; }
       else fan.ang = Math.atan2(y - fan.y, x - fan.x);
     }
+    if (p.tool === 'prints') walkPrints(p, x, y);
     if (p.tool === 'hand') {
       const dx = x - p.x, dy = y - p.y, dist = Math.hypot(dx, dy);
       if (dist < 0.5) continue;
@@ -53,6 +57,7 @@ cv.addEventListener('pointermove', e => {
 
 function endPointer(e) {
   const p = pointers.get(e.pointerId);
+  if (p && p.tool === 'mould' && e.type === 'pointerup') dropMould(p.x, p.y); // let go: a tower!
   if (p && p.tool === 'fan' && p.mode === 'move' && fan) { // dragged off the sandbox: put the fan away
     if (fan.x < -10 || fan.y < -10 || fan.x > cssW + 10 || fan.y > cssH + 10) { fan = null; stopMic(); }
     else { fan.x = Math.max(20, Math.min(cssW - 20, fan.x)); fan.y = Math.max(20, Math.min(cssH - 20, fan.y)); }

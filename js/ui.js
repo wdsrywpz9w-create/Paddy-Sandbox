@@ -3,8 +3,10 @@
 // Files share one global scope; they load in the order listed in index.html.
 
 // ---------- toolbar ----------
-const toolsRow = document.getElementById('tools'), stampsRow = document.getElementById('stamps'), dyesRow = document.getElementById('dyes');
-const buttons = [];
+// Tools are grouped so the bar keeps big, finger-sized buttons. A group's button shows the tool
+// last picked from it; tapping it chooses that tool and pops the group's other choices open above.
+const toolsRow = document.getElementById('tools'), uiEl = document.getElementById('ui');
+const buttons = [], popups = [];
 
 function mkBtn(row, content, label, onPress, cls) {
   const b = document.createElement('button');
@@ -14,25 +16,22 @@ function mkBtn(row, content, label, onPress, cls) {
   row.appendChild(b); buttons.push(b); return b;
 }
 function select(b) { buttons.forEach(x => { if (!x.parentElement.classList.contains('popup')) x.classList.toggle('sel', x === b); }); }
+function closePopups() { popups.forEach(p => p.classList.remove('open')); }
+const closeStamps = closePopups; // the sandbox closes any open picker when touched
 
-const closeStamps = () => { stampsRow.classList.remove('open'); dyesRow.classList.remove('open'); };
-const handBtn = mkBtn(toolsRow, '✋', 'Dig with your finger', b => { tool = 'hand'; select(b); closeStamps(); });
-mkBtn(toolsRow, '🪣', 'Pour sand', b => { tool = 'pour'; select(b); closeStamps(); });
-{
-  const ic = document.createElement('canvas'); ic.width = ic.height = 128;
-  const g = ic.getContext('2d'); g.translate(58, 70); g.rotate(0.65); g.scale(1, 1);
-  // handle
+// little icon painters (128px canvases)
+function icon(paint) { const c2 = document.createElement('canvas'); c2.width = c2.height = 128; paint(c2.getContext('2d')); return c2; }
+const emoji = ch => icon(g => { g.font = '84px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, 64, 70); });
+const paintShovel = g => {
+  g.translate(58, 70); g.rotate(0.65);
   g.fillStyle = '#c9732f'; g.fillRect(-5, 18, 10, 46); g.fillStyle = '#e53935'; g.beginPath(); g.ellipse(0, 66, 15, 8, 0, 0, Math.PI * 2); g.fill();
-  // blade with sand
   g.beginPath(); g.moveTo(-26, -8); g.quadraticCurveTo(-26, -44, 0, -52); g.quadraticCurveTo(26, -44, 26, -8); g.lineTo(26, 14); g.quadraticCurveTo(0, 24, -26, 14); g.closePath();
   g.fillStyle = '#c5d0da'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#6f7d89'; g.stroke();
   g.fillStyle = '#e2bf86'; g.beginPath(); g.ellipse(0, -14, 19, 24, 0, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#f0d4a2'; g.beginPath(); g.ellipse(-5, -22, 9, 11, 0, 0, Math.PI * 2); g.fill();
-  mkBtn(toolsRow, ic, 'Shovel: scoop sand and move it', b => { tool = 'shovel'; select(b); closeStamps(); });
-}
-{
-  const ic = document.createElement('canvas'); ic.width = ic.height = 128;
-  const g = ic.getContext('2d'); g.lineCap = 'round';
+};
+const paintHose = g => {
+  g.lineCap = 'round';
   g.strokeStyle = '#2e8a3a'; g.lineWidth = 16; g.beginPath(); g.arc(50, 80, 30, 0, Math.PI * 1.75); g.stroke();
   g.strokeStyle = '#4cbc57'; g.lineWidth = 10; g.beginPath(); g.arc(50, 80, 30, 0, Math.PI * 1.75); g.stroke();
   g.save(); g.translate(74, 56); g.rotate(-0.8);
@@ -40,41 +39,30 @@ mkBtn(toolsRow, '🪣', 'Pour sand', b => { tool = 'pour'; select(b); closeStamp
   g.restore();
   g.fillStyle = '#3aa0f0';
   for (const [x, y, r] of [[98, 22, 7], [114, 12, 5], [108, 36, 6], [120, 28, 4]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
-  mkBtn(toolsRow, ic, 'Spray water with the hose', b => { tool = 'hose'; select(b); closeStamps(); });
-}
-// the dye bottle: one button shows the current colour; pressing it pops the colours open
-function drawDrop(g, id) {
-  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 128, 128);
-  g.beginPath(); g.moveTo(64, 10); g.quadraticCurveTo(106, 62, 106, 82); g.arc(64, 82, 42, 0, Math.PI); g.quadraticCurveTo(22, 62, 64, 10); g.closePath();
-  const d = DYES.find(x => x.id === id);
-  if (d.rgb) g.fillStyle = `rgb(${d.rgb})`;
-  else { const gr = g.createLinearGradient(22, 20, 106, 124); ['#ff4d4d', '#ffa53a', '#ffe14a', '#4cc95a', '#3f8cf0', '#a35de6'].forEach((col, k) => gr.addColorStop(k / 5, col)); g.fillStyle = gr; }
-  g.fill(); g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,0.18)'; g.stroke();
-  g.fillStyle = 'rgba(255,255,255,0.55)'; g.beginPath(); g.ellipse(48, 74, 9, 16, 0.35, 0, Math.PI * 2); g.fill();
-}
-const dyeIcon = document.createElement('canvas'); dyeIcon.width = dyeIcon.height = 128;
-drawDrop(dyeIcon.getContext('2d'), dyeId);
-const dyeBtn = mkBtn(toolsRow, dyeIcon, 'Colour dye', b => { tool = 'dye'; select(b); stampsRow.classList.remove('open'); dyesRow.classList.toggle('open'); });
-for (const d of DYES) {
-  const ic = document.createElement('canvas'); ic.width = ic.height = 128; drawDrop(ic.getContext('2d'), d.id);
-  const db = mkBtn(dyesRow, ic, d.id + ' dye', b => {
-    tool = 'dye'; dyeId = d.id; select(dyeBtn); drawDrop(dyeIcon.getContext('2d'), d.id);
-    dyesRow.querySelectorAll('.btn').forEach(x => x.classList.toggle('sel', x === b));
-    setTimeout(closeStamps, 150);
-  });
-  if (d.id === dyeId) db.classList.add('sel');
-}
-// one stamp button shows the current stamp; pressing it pops the stamp choices open
-const stampIcon = document.createElement('canvas'); stampIcon.width = stampIcon.height = 128;
-function drawStampIcon() {
-  const g = stampIcon.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 128, 128);
-  g.translate(64, 64); g.scale(54, 54); drawShape(g, stampType, PAL[stampType]);
-}
-drawStampIcon();
-const stampBtn = mkBtn(toolsRow, stampIcon, 'Stamps', b => { tool = 'stamp'; select(b); dyesRow.classList.remove('open'); stampsRow.classList.toggle('open'); });
-{
-  const ic = document.createElement('canvas'); ic.width = ic.height = 128;
-  const g = ic.getContext('2d');
+};
+const paintCloud = g => {
+  g.strokeStyle = '#3aa0f0'; g.lineWidth = 6; g.lineCap = 'round';
+  for (const x of [36, 58, 80, 100]) { g.beginPath(); g.moveTo(x, 86); g.lineTo(x - 6, 112); g.stroke(); }
+  g.fillStyle = '#c9d6e4';
+  for (const [x, y, r] of [[38, 62, 22], [62, 48, 28], [90, 58, 24], [64, 70, 22]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = '#ffffff'; for (const [x, y, r] of [[40, 58, 16], [62, 44, 21], [88, 54, 17]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+};
+const paintCastle = g => {
+  g.fillStyle = '#e2bf86'; g.fillRect(28, 46, 72, 66);
+  g.fillStyle = '#e2bf86'; for (const x of [28, 52, 76]) g.fillRect(x, 30, 16, 18);
+  g.fillStyle = '#c9a26a'; g.fillRect(56, 80, 16, 32); g.fillRect(28, 104, 72, 8);
+  g.fillStyle = '#e53935'; g.beginPath(); g.moveTo(64, 30); g.lineTo(64, 6); g.lineTo(86, 14); g.lineTo(64, 22); g.fill();
+  g.strokeStyle = '#6b4a20'; g.lineWidth = 3; g.beginPath(); g.moveTo(64, 30); g.lineTo(64, 6); g.stroke();
+};
+const paintTruck = g => {
+  g.fillStyle = '#222'; for (const x of [30, 88]) { g.beginPath(); g.arc(x, 96, 14, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = '#e8582a'; g.fillRect(12, 50, 64, 34);
+  g.fillStyle = '#ffc531'; g.fillRect(76, 40, 36, 44);
+  g.fillStyle = '#7fc6f0'; g.fillRect(86, 46, 20, 16);
+  g.fillStyle = '#e2bf86'; g.beginPath(); g.ellipse(44, 50, 30, 14, 0, Math.PI, 0); g.fill();
+  g.fillStyle = '#ddd'; for (const x of [30, 88]) { g.beginPath(); g.arc(x, 96, 5, 0, Math.PI * 2); g.fill(); }
+};
+const paintFan = g => {
   g.fillStyle = '#4f5a64'; g.beginPath(); g.ellipse(64, 116, 34, 9, 0, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#6c7884'; g.fillRect(58, 70, 12, 44);
   g.fillStyle = '#d9eefc'; g.beginPath(); g.arc(64, 54, 46, 0, Math.PI * 2); g.fill();
@@ -82,22 +70,67 @@ const stampBtn = mkBtn(toolsRow, stampIcon, 'Stamps', b => { tool = 'stamp'; sel
   for (let k = 0; k < 3; k++) { g.save(); g.translate(64, 54); g.rotate(k * Math.PI * 2 / 3 + 0.3); g.beginPath(); g.ellipse(0, -21, 13, 22, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
   g.fillStyle = '#ffffff'; g.beginPath(); g.arc(64, 54, 9, 0, Math.PI * 2); g.fill();
   g.strokeStyle = '#8fa3b3'; g.lineWidth = 5; g.beginPath(); g.arc(64, 54, 46, 0, Math.PI * 2); g.stroke();
-  mkBtn(toolsRow, ic, 'Desk fan: blow into the microphone', b => { tool = 'fan'; select(b); closeStamps(); placeFan(); startMic(); });
+};
+function drawDrop(g, id) {
+  g.beginPath(); g.moveTo(64, 10); g.quadraticCurveTo(106, 62, 106, 82); g.arc(64, 82, 42, 0, Math.PI); g.quadraticCurveTo(22, 62, 64, 10); g.closePath();
+  const d = DYES.find(x => x.id === id);
+  if (d.rgb) g.fillStyle = `rgb(${d.rgb})`;
+  else { const gr = g.createLinearGradient(22, 20, 106, 124); ['#ff4d4d', '#ffa53a', '#ffe14a', '#4cc95a', '#3f8cf0', '#a35de6'].forEach((col, k) => gr.addColorStop(k / 5, col)); g.fillStyle = gr; }
+  g.fill(); g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,0.18)'; g.stroke();
+  g.fillStyle = 'rgba(255,255,255,0.55)'; g.beginPath(); g.ellipse(48, 74, 9, 16, 0.35, 0, Math.PI * 2); g.fill();
 }
-mkBtn(toolsRow, '🌊', 'Smooth the sand', b => { startWave(); closeStamps(); }, 'action');
+const shapeIcon = (type, pal) => icon(g => { g.translate(64, 64); g.scale(54, 54); drawShape(g, type, pal); });
 
-for (const t of STAMPS) {
-  const ic = document.createElement('canvas'); ic.width = ic.height = 128;
-  const g = ic.getContext('2d'); g.translate(64, 64); g.scale(54, 54); drawShape(g, t, PAL[t]);
-  const sb = mkBtn(stampsRow, ic, t + ' stamp', (b, e) => {
-    tool = 'stamp'; stampType = t; select(stampBtn); drawStampIcon();
-    stampsRow.querySelectorAll('.btn').forEach(x => x.classList.toggle('sel', x === b));
-    try { b.releasePointerCapture(e.pointerId); } catch (_) {}
-    pickUpStamp(e.pointerId, t, null, null); // drag it straight off the button onto the sand
-    setTimeout(closeStamps, 150);
+// items: { label, icon(), pick(button, pointerEvent|null) }; action items don't stay selected
+function makeGroup(label, items) {
+  if (items.length === 1) {
+    const it = items[0];
+    return mkBtn(toolsRow, it.icon(), it.label, (b, e) => { closePopups(); it.pick(b, e); if (!it.action) select(b); }, it.action ? 'action' : '');
+  }
+  let cur = 0;
+  const face = document.createElement('canvas'); face.width = face.height = 128;
+  const paintFace = () => { const g = face.getContext('2d'); g.clearRect(0, 0, 128, 128); g.drawImage(items[cur].icon(), 0, 0); };
+  paintFace();
+  const pop = document.createElement('div'); pop.className = 'row popup' + (items.length > 6 ? ' many' : '');
+  uiEl.insertBefore(pop, toolsRow); popups.push(pop);
+  const main = mkBtn(toolsRow, face, label, b => {
+    const wasOpen = pop.classList.contains('open');
+    closePopups(); items[cur].pick(b, null); select(b);
+    if (!wasOpen) pop.classList.add('open');
   });
-  if (t === stampType) sb.classList.add('sel');
+  items.forEach((it, k) => {
+    const sb = mkBtn(pop, it.icon(), it.label, (b, e) => {
+      cur = k; paintFace(); select(main);
+      pop.querySelectorAll('.btn').forEach(x => x.classList.toggle('sel', x === b));
+      it.pick(main, e);
+      setTimeout(closePopups, 150);
+    });
+    if (k === 0) sb.classList.add('sel');
+  });
+  return main;
 }
+
+const handBtn = makeGroup('Dig with your finger', [{ label: 'Dig with your finger', icon: () => emoji('✋'), pick: () => { tool = 'hand'; } }]);
+makeGroup('Sand tools', [
+  { label: 'Pour sand from the bucket', icon: () => emoji('🪣'), pick: () => { tool = 'pour'; } },
+  { label: 'Castle mould: let go to make a tower', icon: () => icon(paintCastle), pick: () => { tool = 'mould'; } },
+  { label: 'Shovel: scoop sand and move it', icon: () => icon(paintShovel), pick: () => { tool = 'shovel'; } },
+]);
+makeGroup('Water', [
+  { label: 'Spray water with the hose', icon: () => icon(paintHose), pick: () => { tool = 'hose'; } },
+  { label: 'Rain cloud', icon: () => icon(paintCloud), pick: () => { tool = 'rain'; } },
+]);
+makeGroup('Colour dye', DYES.map(d => ({ label: d.id + ' dye', icon: () => icon(g => drawDrop(g, d.id)), pick: () => { tool = 'dye'; dyeId = d.id; } })));
+makeGroup('Stamps', STAMPS.map(t => ({
+  label: t + ' stamp', icon: () => shapeIcon(t, PAL[t]),
+  pick: (b, e) => {
+    tool = 'stamp'; stampType = t;
+    if (e) { try { e.target.releasePointerCapture(e.pointerId); } catch (_) {} pickUpStamp(e.pointerId, t, null, null); } // drag it straight off the button
+  },
+})).concat([{ label: 'Dinosaur footprints: drag to walk', icon: () => shapeIcon('dinoprint', PAL.dinoprint), pick: () => { tool = 'prints'; } }]));
+makeGroup('Toy truck', [{ label: 'Toy truck: touch the sand and it drives there', icon: () => icon(paintTruck), pick: () => { tool = 'truck'; placeTruck(); } }]);
+makeGroup('Desk fan', [{ label: 'Desk fan: blow into the microphone', icon: () => icon(paintFan), pick: () => { tool = 'fan'; placeFan(); startMic(); } }]);
+makeGroup('Smooth the sand', [{ label: 'Smooth the sand', icon: () => emoji('🌊'), action: true, pick: () => { startWave(); } }]);
 select(handBtn);
 
 // ---------- start screen ----------

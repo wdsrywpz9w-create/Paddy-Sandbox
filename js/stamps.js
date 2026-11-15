@@ -5,6 +5,7 @@
 // ---------- stamps ----------
 const STAMPS = ['turtle', 'starfish', 'shell', 'fish', 'crab', 'heart'];
 const PAL = {
+  dinoprint: { a: '#8a5a2b', b: '#8a5a2b', d: '#8a5a2b', e: '#8a5a2b' },
   turtle:   { a: '#86cf6c', b: '#3e8c4c', d: '#c3eaa0', e: '#1d2a1d' },
   starfish: { a: '#ff8a3d', b: '#ff8a3d', d: '#ffd38f', e: '#3a1d08' },
   shell:    { a: '#ffb7c9', b: '#f28aab', d: '#e0688c', e: '#e0688c' },
@@ -108,6 +109,16 @@ function drawShape(g, type, p) {
       g.strokeStyle = p.d; g.lineWidth = 0.065; g.beginPath(); g.arc(0, 0.02, 0.22, 0.35, Math.PI - 0.35); g.stroke();
       break;
     }
+    case 'dinoprint': { // a three-toed dinosaur footprint, pointing up
+      g.fillStyle = p.a;
+      ell(g, 0, 0.42, 0.34, 0.3, 0);
+      ell(g, 0, -0.3, 0.14, 0.5, 0);
+      ell(g, -0.36, -0.12, 0.13, 0.44, -0.55); ell(g, 0.36, -0.12, 0.13, 0.44, 0.55);
+      g.beginPath(); g.moveTo(-0.07, -0.74); g.lineTo(0.07, -0.74); g.lineTo(0, -0.98); g.fill();
+      g.beginPath(); g.moveTo(-0.66, -0.4); g.lineTo(-0.54, -0.5); g.lineTo(-0.72, -0.66); g.fill();
+      g.beginPath(); g.moveTo(0.66, -0.4); g.lineTo(0.54, -0.5); g.lineTo(0.72, -0.66); g.fill();
+      break;
+    }
     case 'heart': {
       const path = () => { g.beginPath(); g.moveTo(0, 0.85); g.bezierCurveTo(-1.25, 0.05, -0.8, -1.05, 0, -0.42); g.bezierCurveTo(0.8, -1.05, 1.25, 0.05, 0, 0.85); };
       g.fillStyle = p.a; path(); g.fill();
@@ -133,8 +144,8 @@ function boxBlur(src, S, r) {
   return out;
 }
 
-function makeMask(type, rot) {
-  const R = STAMP_R / CELL, pad = Math.ceil(16 / CELL) + 3;
+function makeMask(type, rot, scale = 1) {
+  const R = STAMP_R * scale / CELL, pad = Math.ceil(16 * scale / CELL) + 3;
   const S = Math.ceil(R * 2.3 + pad * 2);
   maskCanvas.width = S; maskCanvas.height = S;
   mctx.clearRect(0, 0, S, S);
@@ -153,11 +164,11 @@ function makeMask(type, rot) {
   return { S, dep, near, rim };
 }
 
-function pressStamp(type, cx, cy, rot) {
-  const { S, dep, near, rim } = makeMask(type, rot);
+function pressStamp(type, cx, cy, rot, scale = 1, depthPx = 8) {
+  const { S, dep, near, rim } = makeMask(type, rot, scale);
   wakeCells(cx - S / 2, cy - S / 2, cx + S / 2, cy + S / 2);
   const ox = Math.round(cx - S / 2), oy = Math.round(cy - S / 2);
-  const D = 8 / CELL;
+  const D = depthPx / CELL;
   let sum = 0, n = 0;
   for (let k = 0; k < S * S; k++) {
     if (dep[k] < 0.5) continue;

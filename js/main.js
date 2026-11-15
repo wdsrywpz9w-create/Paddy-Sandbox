@@ -20,6 +20,9 @@ function frame(now) {
   }
   const pouring = pourStep();
   const spraying = hoseStep();
+  const raining = rainStep();
+  const driving = truckStep();
+  sound.extras(raining ? 0.16 : 0, Math.min(1, driving / 4));
   const dyeing = dyeStep(now);
   growShovels(now);
   const fanning = fanStep(now);

@@ -90,9 +90,12 @@ function render(now) {
   drawWave();
   drawFinds(now);
   drawAnims(now);
+  drawTruck(now);
   drawFan(now);
   drawHoses();
   drawScoopRings(now);
   drawShovels(now);
+  drawMoulds(now);
+  drawClouds(now);
   drawCarries(now);
 }
