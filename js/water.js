@@ -63,7 +63,7 @@ function waterStep(tx, ty) {
     if (wv > 0) { const soak = wv < 0.0006 ? wv : 0.0006; wv -= soak; wet[i] = 1; } // soaks into the sand
     w_[i] = wv > 0 ? wv : 0; tot += w_[i];
     const sd = s_[i];
-    if (sd !== 0) { h_[i] += sd; if (h_[i] < 0) h_[i] = 0; firm[i] *= 0.9; act[i] = 1; }
+    if (sd !== 0) { h_[i] += sd; if (h_[i] < 0) h_[i] = 0; firm[i] *= 0.9; act[i] = 1; tileAwake[((((i / w) | 0) >> TSH) * TW) + ((i % w) >> TSH)] = 30; }
   }
   waterTotal = tot;
   if (tot > 0) wetActive = true;

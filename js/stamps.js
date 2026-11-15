@@ -155,6 +155,7 @@ function makeMask(type, rot) {
 
 function pressStamp(type, cx, cy, rot) {
   const { S, dep, near, rim } = makeMask(type, rot);
+  wakeCells(cx - S / 2, cy - S / 2, cx + S / 2, cy + S / 2);
   const ox = Math.round(cx - S / 2), oy = Math.round(cy - S / 2);
   const D = 8 / CELL;
   let sum = 0, n = 0;

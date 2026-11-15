@@ -5,7 +5,7 @@
 // ---------- tilt, shake ----------
 const D2R = Math.PI / 180;
 let ori = null, g0 = null, needCal = true;
-let tiltX = 0, tiltY = 0, agit = 0;
+let tiltX = 0, tiltY = 0, agit = 0, wakeTiltX = 0, wakeTiltY = 0;
 const keyTilt = { x: 0, y: 0 };
 
 function gvec(o) {
@@ -59,6 +59,8 @@ function updateTilt() {
   let tx = P.tiltGain * gx / gz, ty = P.tiltGain * gy / gz;
   tx = Math.max(-3, Math.min(3, tx)); ty = Math.max(-3, Math.min(3, ty));
   tiltX += (tx - tiltX) * 0.15; tiltY += (ty - tiltY) * 0.15;
+  // a real change of tilt wakes the whole tray (sensor jitter doesn't)
+  if (Math.abs(tiltX - wakeTiltX) + Math.abs(tiltY - wakeTiltY) > 0.01) { wakeTiltX = tiltX; wakeTiltY = tiltY; wakeAll(); }
 }
 
 window.addEventListener('keydown', e => {

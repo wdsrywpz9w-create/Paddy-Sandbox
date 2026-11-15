@@ -8,6 +8,10 @@ function frame(now) {
   requestAnimationFrame(frame);
   if (!N) { resize(); if (!N) return; }
   updateTilt();
+  tickTiles();
+  if (agit > 0.01 || wave || windOn) wakeAll();
+  for (const p of pointers.values()) wakeCss(p.x, p.y, 90);   // wherever a finger is working
+  for (const sh of shovels.values()) wakeCss(sh.ox, sh.oy, 60);
   if (agit > 0.01) { agit *= 0.95; for (let i = 0; i < N; i++) firm[i] *= 1 - 0.04 * agit; } else agit = 0;
   if (wetActive && !wave) {
     let any = false;

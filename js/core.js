@@ -127,7 +127,32 @@ function resize() {
   buildObjSprites();
   if (!hadSand) { placeObjects(); for (let i = 0; i < N; i++) h[i] = coverOver(i, h[i] - base[i]); }
   else rasterizeObjects();
+  allocTiles();
   makeGrain();
+}
+
+// ---------- sleeping tiles: only work where something is happening ----------
+// The tray is split into 16x16-cell tiles. A tile is processed while it (or a neighbour) is
+// awake; it wakes when sand in it moves or anything disturbs it, and dozes off once calm.
+const TS = 16, TSH = 4;
+let TW = 0, TH = 0, tileAwake = new Uint8Array(0), tileProc = new Uint8Array(0), tileList = new Int32Array(0);
+function allocTiles() {
+  TW = Math.ceil(W / TS); TH = Math.ceil(H / TS);
+  tileAwake = new Uint8Array(TW * TH).fill(30); tileProc = new Uint8Array(TW * TH); tileList = new Int32Array(TW * TH);
+}
+function wakeAll() { tileAwake.fill(30); }
+// wake the tiles covering a rectangle given in grid cells
+function wakeCells(x0, y0, x1, y1) {
+  const a = Math.max(0, (x0 | 0) >> TSH), b = Math.min(TW - 1, (x1 | 0) >> TSH);
+  const c0 = Math.max(0, (y0 | 0) >> TSH), d = Math.min(TH - 1, (y1 | 0) >> TSH);
+  for (let ty = c0; ty <= d; ty++) for (let tx = a; tx <= b; tx++) tileAwake[ty * TW + tx] = 30;
+}
+function wakeCss(x, y, r) { wakeCells((x - r) / CELL, (y - r) / CELL, (x + r) / CELL, (y + r) / CELL); }
+// called once per frame: tiles count down to sleep; every half second everything gets one look
+let tileTick = 0;
+function tickTiles() {
+  for (let t = 0; t < tileAwake.length; t++) if (tileAwake[t]) tileAwake[t]--;
+  if (++tileTick % 30 === 0) for (let t = 0; t < tileAwake.length; t++) if (!tileAwake[t]) tileAwake[t] = 1;
 }
 
 // ---------- the physics: granular relaxation ----------
@@ -137,6 +162,18 @@ let rseed = 12345;
 function frand() { rseed = (rseed * 1664525 + 1013904223) | 0; return (rseed >>> 8) / 16777216; }
 
 function relax(tx, ty, agit) {
+  // which tiles to work on: awake ones and their neighbours (sand can flow in from next door)
+  tileProc.fill(0);
+  let nt = 0;
+  for (let t = 0; t < tileAwake.length; t++) {
+    if (!tileAwake[t]) continue;
+    const tx0 = t % TW, ty0 = (t / TW) | 0;
+    for (let yy = Math.max(0, ty0 - 1); yy <= Math.min(TH - 1, ty0 + 1); yy++)
+      for (let xx = Math.max(0, tx0 - 1); xx <= Math.min(TW - 1, tx0 + 1); xx++) {
+        const q = yy * TW + xx; if (!tileProc[q]) { tileProc[q] = 1; tileList[nt++] = q; }
+      }
+  }
+  if (!nt) return;
   // local references keep the hot loops fast
   const h_ = h, dh_ = dh, outm_ = outm, cin_ = cin, c_ = c, thr_ = thr, act_ = act, firm_ = firm, wet_ = wet;
   const n = N, w = W, hgt = H;
@@ -169,9 +206,12 @@ function relax(tx, ty, agit) {
     }
   };
   const Wm = w - 1;
-  for (let y = 0; y < hgt; y++) {
+  for (let tq = 0; tq < nt; tq++) {
+  const tt = tileList[tq], tx0 = (tt % TW) * TS, ty0 = ((tt / TW) | 0) * TS;
+  const xe = Math.min(w, tx0 + TS), ye = Math.min(hgt, ty0 + TS);
+  for (let y = ty0; y < ye; y++) {
     const row = y * w, notLast = y < hgt - 1;
-    for (let x = 0; x < w; x++) {
+    for (let x = tx0; x < xe; x++) {
       const i = row + x, hi = sf_[i], ti = thr_[i];
       if (x < Wm) mv(i, i + 1, hi - sf_[i + 1] + tx, ti, thr_[i + 1], k);
       if (notLast) {
@@ -182,15 +222,19 @@ function relax(tx, ty, agit) {
       }
     }
   }
+  }
   // Granular flow with momentum: each column's surface layer has a velocity.
   // Gravity along the slope (terrain + phone tilt) accelerates it; Coulomb
   // friction (the angle of repose) brakes it. Sand speeds up, surges, piles
   // against walls and stops - like a real avalanche.
   const u_ = u, v_ = v, pu_ = pu, pv_ = pv, qin_ = qin, G = P.G, L = P.mobile, VM = P.vmax, wOn = windOn, wX = windX, wY = windY;
   pu_.fill(0); pv_.fill(0); qin_.fill(0);
-  for (let y = 0; y < hgt; y++) {
+  for (let tq = 0; tq < nt; tq++) {
+  const tt = tileList[tq], tx0 = (tt % TW) * TS, ty0 = ((tt / TW) | 0) * TS;
+  const xe = Math.min(w, tx0 + TS), ye = Math.min(hgt, ty0 + TS);
+  for (let y = ty0; y < ye; y++) {
     const row = y * w, up = y > 0 ? -w : 0, dn = y < hgt - 1 ? w : 0, gyk = (up && dn) ? 0.5 : 1;
-    for (let x = 0; x < w; x++) {
+    for (let x = tx0; x < xe; x++) {
       const i = row + x, hi = h_[i];
       let ui = u_[i], vi = v_[i];
       if (hi < 0.03) { u_[i] = v_[i] = 0; continue; }
@@ -220,9 +264,14 @@ function relax(tx, ty, agit) {
       dh_[i] -= qx + qy; outm_[i] += qx + qy; flow += qx + qy;
     }
   }
-  for (let i = 0; i < n; i++) {
+  }
+  const tA = tileAwake;
+  for (let y = 0, i = 0; y < hgt; y++) {
+  const trow = (y >> TSH) * TW;
+  for (let x = 0; x < w; x++, i++) {
     const o = outm_[i], d = dh_[i];
     if (o === 0 && d === 0) { act_[i] = 0; continue; }
+    if (o > 0.002 || d > 0.002 || d < -0.002) tA[trow + (x >> TSH)] = 30; // still moving: stay awake
     const h0 = h_[i], nh = h0 + d, inflow = d + o;
     if (nh > 1e-5) {
       const keep = h0 - o, inv = 1 / nh;
@@ -238,6 +287,7 @@ function relax(tx, ty, agit) {
     }
     if (inflow > 0.02) { const f = inflow * 0.5; c_[i] += ((0.88 + frand() * 0.2) - c_[i]) * (f < 0.35 ? f : 0.35); } // tumbling grains
     if (inflow > 0.003 && firm_[i] > 0) { const f = 1 - inflow * 0.35; firm_[i] *= f > 0 ? f : 0; }
+  }
   }
   flowThisFrame += flow;
 }

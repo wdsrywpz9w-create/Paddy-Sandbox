@@ -29,6 +29,7 @@ function updateParticles() {
     if (p.dye && p.z <= h[i] + base[i] + wat[i]) { applyDye(p.x, p.y, p.dye); parts[n] = parts[parts.length - 1]; parts.pop(); continue; }
     if (p.w && p.z <= h[i] + base[i] + wat[i]) { landDrop(p, i); parts[n] = parts[parts.length - 1]; parts.pop(); continue; }
     if (p.z <= h[i] + base[i]) {
+      wakeCells(p.x - 2, p.y - 2, p.x + 2, p.y + 2);
       const nh = h[i] + p.m;
       if (nh < P.maxH) mixInto(i, p.m, p.c, p.kr, p.kg, p.kb);
       const share = p.m / Math.max(1, Math.min(nh, P.mobile));
@@ -44,6 +45,7 @@ function spawnDrop(x, y, z, vx, vy, vz, m) {
   parts.push({ x, y, z, vx, vy, vz, m, c: 1, w: 1 });
 }
 function landDrop(p, i) {
+  wakeCells(p.x - 6, p.y - 6, p.x + 6, p.y + 6);
   wat[i] += p.m; waterTotal += p.m;
   wet[i] = 1; wetActive = true; firm[i] *= 0.6; act[i] = 1;
   if (h[i] > 0.05 && wat[i] < 0.6) { // the jet blasts a small crater; once water collects it cushions the jet and the hole fills
