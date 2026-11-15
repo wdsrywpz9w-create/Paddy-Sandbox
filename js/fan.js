@@ -52,9 +52,16 @@ function fanStep(now) {
   windX.fill(0); windY.fill(0);
   windOn = fan.speed > 0.03;
   if (!windOn) return 0;
-  const dx = Math.cos(fan.ang), dy = Math.sin(fan.ang);
+  // real wind comes in gusts: strength swells and dips, and the jet sways a little
+  const gust = 0.78 + 0.16 * Math.sin(now * 0.0031) + 0.1 * Math.sin(now * 0.0089 + 1.3) + 0.06 * Math.sin(now * 0.021);
+  const sway = 0.06 * Math.sin(now * 0.0017) * fan.speed;
+  const dx = Math.cos(fan.ang + sway), dy = Math.sin(fan.ang + sway);
   const nxp = fan.x + dx * 22, nyp = fan.y + dy * 22;             // the front of the fan
-  const Lmax = Math.max(cssW, cssH) * 0.65, spread = Math.tan(0.4), S = 2.0 * fan.speed;
+  const Lmax = Math.max(cssW, cssH) * 0.65, spread = Math.tan(0.4), S = 2.0 * fan.speed * gust;
+  fan.gust = gust;
+  // wind ripples: loose sand is nudged into little ridges across the wind that creep downwind
+  const RIP = 2 * Math.PI / 9, ripPhase = now * 0.004 * fan.speed;
+  const jStep = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : -1) : (dy > 0 ? W : -W);
   for (let y = 0; y < H; y++) {
     const py = y * CELL - nyp;
     for (let x = 0, i = y * W; x < W; x++, i++) {
@@ -65,6 +72,14 @@ function fanStep(now) {
       const a2 = across / half, w = S * (1 - along / Lmax) * (1 - a2 * a2);
       const d = Math.hypot(px, py) || 1; // the jet fans out slightly
       windX[i] = w * (dx * 0.8 + (px / d) * 0.2); windY[i] = w * (dy * 0.8 + (py / d) * 0.2);
+      if (w > 0.45 && firm[i] < 0.3 && wet[i] < 0.5 && wat[i] < 0.02) {
+        const j = i + jStep;
+        if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1) {
+          const q = 0.012 * w * Math.sin(along * RIP - ripPhase);   // mass moves between neighbours: nothing gained or lost
+          if (q > 0) { const m = Math.min(q, h[i] * 0.2); h[i] -= m; h[j] += m; }
+          else if (q < 0) { const m = Math.min(-q, h[j] * 0.2); h[j] -= m; h[i] += m; }
+        }
+      }
     }
   }
   // saltation: grains hop downwind from where the wind is strongest
@@ -92,11 +107,11 @@ function drawFan(now) {
   }
   if (f.speed > 0.05) {
     ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.ang); ctx.lineCap = 'round';
-    const L = Math.max(cssW, cssH) * 0.55;
+    const L = Math.max(cssW, cssH) * 0.55, gs = fan.gust || 1;
     for (let k = 0; k < 14; k++) {
       const ph = (now * 0.0011 * (0.6 + f.speed) + k * 0.618) % 1, along = 26 + ph * L;
       const across = (((k * 0.37) % 1) - 0.5) * 2 * (20 + along * Math.tan(0.35));
-      ctx.strokeStyle = `rgba(255,255,255,${(0.55 * (1 - ph) * f.speed).toFixed(3)})`; ctx.lineWidth = 2.5;
+      ctx.strokeStyle = `rgba(255,255,255,${(0.55 * (1 - ph) * f.speed * gs).toFixed(3)})`; ctx.lineWidth = 2.5;
       ctx.beginPath(); ctx.moveTo(along, across); ctx.lineTo(along + 18 + 14 * f.speed, across); ctx.stroke();
     }
     ctx.restore();

@@ -19,9 +19,10 @@ function makeGrain() {
 }
 
 function render(now) {
-  const Lx = -0.42, Ly = -0.56, Lz = 0.71;
+  // the sun comes from the top-left; its height (a setting) sets the shading and how long shadows are
+  const sun = SUN[settings.sun] || SUN.medium, Lx = sun.L[0], Ly = sun.L[1], Lz = sun.L[2], DROP = sun.drop;
+  const Hx = sun.H[0], Hy = sun.H[1], Hz = sun.H[2]; // half-way vector between sun and eye, for the wet sheen
   const sandR = 228, sandG = 197, sandB = 148, flR = 64, flG = 158, flB = 214;
-  const DROP = 0.6; // low sun from the top-left casts soft shadows down-right
   for (let y = 0; y < H; y++) {
     const up = y > 0 ? -W : 0, dn = y < H - 1 ? W : 0;
     for (let x = 0; x < W; x++) {
@@ -37,6 +38,10 @@ function render(now) {
       let lum = (0.3 + 0.92 * s) * (1 - 0.3 * shade) * c[i] * (1 - 0.22 * w);
       if (hh < 5) lum *= 0.84 + 0.032 * hh; // deeper sand is damper and darker
       let r = sandR * lum * kr[i], g = sandG * lum * kg[i] * (1 - 0.03 * w), b = sandB * lum * kb[i] * (1 + 0.06 * w);
+      if (w > 0.4 && wat[i] <= 0.015) { // damp sand has a soft glossy sheen where it faces the sun
+        let nh = (-gx * Hx - gy * Hy + Hz) / Math.sqrt(gx * gx + gy * gy + 1);
+        if (nh > 0.9) { nh *= nh; nh *= nh; nh *= nh; nh *= nh; nh *= nh; const sp = nh * (w - 0.4) * 110; r += sp; g += sp; b += sp * 0.95; }
+      }
       let alpha = 255;
       if (objId[i]) { // a buried toy shows through thin sand
         const t = (hh - 0.3) / 1.9; alpha = t <= 0 ? 0 : t >= 1 ? 255 : 255 * t * t;
@@ -52,6 +57,9 @@ function render(now) {
         const t = wa > 1.2 ? 0.82 : 0.36 + wa * 0.38, ws = 0.6 + 0.5 * sw;
         r = r * (1 - t) + 62 * ws * t; g = g * (1 - t) + 158 * ws * t; b = b * (1 - t) + 214 * ws * t;
         if (sw > 0.9) { const sp = (sw - 0.9) * 1400 * (t + 0.2); r += sp; g += sp; b += sp; }
+        if (wa < 0.14) { // a frothy, bubbly line where the water's edge meets the sand
+          let foam = (1 - wa / 0.14) * (c[i] - 0.84) * 3.2; if (foam > 0) { if (foam > 0.8) foam = 0.8; r += (250 - r) * foam; g += (252 - g) * foam; b += (255 - b) * foam; }
+        }
         const wa255 = t * 255 + 60; if (wa255 > alpha) alpha = wa255 > 255 ? 255 : wa255;
         void wl;
       }

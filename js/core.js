@@ -17,7 +17,7 @@ const small = document.createElement('canvas');
 const sctx = small.getContext('2d');
 
 // ---------- grown-up settings (remembered on this device) ----------
-const settings = { motion: 'on', sens: 'low', bury: 'medium', sound: 'on', tide: 'off', bg: 'rocky' };
+const settings = { motion: 'on', sens: 'low', bury: 'medium', sound: 'on', tide: 'off', bg: 'rocky', sun: 'medium' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('sandbox-settings') || '{}')); } catch (e) {}
 function saveSettings() { try { localStorage.setItem('sandbox-settings', JSON.stringify(settings)); } catch (e) {} }
 // sand bed thickness and the sand left over each toy, in screen px
@@ -30,6 +30,12 @@ const BURY = {
 // sand starts to slide when gain x tan(tilt) beats the angle of repose (0.72): ~50 / 42 / 34 degrees
 const SENS = { low: { gain: 0.6, shake: 22 }, medium: { gain: 0.85, shake: 18 }, high: { gain: 1.1, shake: 15 } };
 const sens = () => SENS[settings.sens] || SENS.low;
+// sun height: shading direction, shadow length (smaller drop = longer shadows), and the sheen's half-vector
+const SUN = {};
+for (const [k, L, drop] of [['low', [-0.56, -0.72, 0.41], 0.32], ['medium', [-0.42, -0.56, 0.71], 0.6], ['high', [-0.24, -0.32, 0.92], 1.4]]) {
+  const l = Math.hypot(...L), n = L.map(v => v / l), hv = [n[0], n[1], n[2] + 1], hl = Math.hypot(...hv);
+  SUN[k] = { L: n, drop, H: hv.map(v => v / hl) };
+}
 const bury = () => BURY[settings.bury] || BURY.medium;
 
 // ---------- tunables ----------
