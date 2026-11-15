@@ -1,5 +1,5 @@
 // Offline cache so the sandbox works without signal once it has been opened.
-const CACHE = 'sandbox-v15';
+const CACHE = 'sandbox-v16';
 const FILES = [
   './',
   'index.html',

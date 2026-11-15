@@ -4,20 +4,24 @@ A phone-browser sand tray for toddlers. No install, no ads, no text to read. It 
 
 ## Play
 
-| Button | What it does |
+A full illustrated guide for grown-ups is built in: press and hold ⚙️ and tap **📖 Help & guide**, or tap **Read the guide** on the start screen. It's also at [`help.html`](help.html).
+
+The toolbar has eight big buttons. Four of them hold a **group** of tools: tapping the button picks the tool it shows and pops the rest of its group open above the bar.
+
+| Button | Tools |
 | --- | --- |
-| ✋ | Drag a finger through the sand. It digs a groove and pushes a ridge of sand ahead of it. Flick fast and grains fly. |
-| 🪣 | Hold a finger down to pour a stream of sand that builds a cone-shaped pile. |
-| Shovel | Press to scoop up a shovelful of sand (leaving a hole). Keep holding still and the scoop keeps digging wider and deeper for about 1.5 seconds, up to about 3× as wide and 11× as much sand: a marching dashed ring shows the scoop's edge and a yellow ring fills up (turning green with a pop when it's full). Then drag the loaded shovel anywhere and let go to tip it out into a new pile. |
-| Dye drop | Opens a palette of colours (red, orange, yellow, green, blue, purple, pink and rainbow). Rub a finger on the sand to squirt coloured dye that stains the grains. Dyed sand keeps its colour when it slides, gets dug, stamped or shovelled. The 🌊 wave washes the colours out. |
-| Hose (green coil) | Hold a finger down to spray water onto the spot just past the fingertip (the nozzle sits just below the finger). The first splashes blast a small crater; once water collects it cushions the jet, so holes, moats and trenches fill up and stay full for a while before soaking in. Water runs downhill (tilt the phone to slosh it), carves little channels and leaves dark wet sand. |
-| Desk fan | Puts a desk fan on the sand (the phone asks to use the microphone the first time). **Blow into the microphone** and the fan spins up and blows sand away from where it points: loose sand slides and hops downwind and piles into little dunes, while wet or packed sand resists. With the fan button chosen, touch the fan to drag it somewhere else, or touch anywhere else to point it that way. Drag it off the edge of the sandbox to put it away (and switch the microphone off). If the microphone isn't available, pressing and holding the fan runs it instead. |
-| 🌊 | A wave washes over the tray, leaves it flat and wet, buries a new set of dinosaurs, and re-levels the tilt (see below). |
-| 🐢 (stamp button) | Opens the six stamps (🐢 ⭐ 🐚 🐟 🦀 ❤️). Drag a stamp off its button onto the sand, or pick one and touch the sand. The stamp lifts up and follows the finger, then presses in where the finger lets go. |
+| ✋ Finger | Drag through the sand to dig a groove, pushing a ridge ahead. Flick fast and grains fly. |
+| **Sand tools** | 🪣 **Bucket:** hold to pour a stream of sand into a cone. **Castle mould:** carry an upside-down bucket and let go to lift off a tower with battlements, made of firm damp sand. **Shovel:** press to scoop. Hold still and the scoop grows for about 1.5 s, shown by a dashed ring and a filling progress ring. Drag and let go to tip it out. |
+| **Water** | **Hose:** sprays just past the fingertip. Holes and moats fill up, water runs downhill, carves channels and soaks in. **Rain cloud:** hold to rain on the sand around the finger. Drops dimple and wet the sand and pool in hollows. |
+| **Colours** | Red, orange, yellow, green, blue, purple, pink or rainbow dye. Rub to stain the grains. Coloured sand keeps its colour wherever it goes, and the wave washes it out. |
+| **Stamps** | 🐢 ⭐ 🐚 🐟 🦀 ❤️: drag one off its button, or touch the sand. It follows the finger and presses in on release. **Dinosaur footprints:** drag and a dinosaur walks along, left-right. |
+| Toy truck | Touch the sand and the truck drives there, bulldozing a ridge with its blade and leaving tread tracks. |
+| Desk fan | **Blow into the microphone** to spin it. Gusty wind blows loose sand downwind into drifts and ripples; wet or packed sand resists. Drag the fan to move it, touch elsewhere to aim it, and drag it off the edge to put it away. |
+| 🌊 Wave | Washes the tray smooth and wet, buries a new set of toys, washes out dye, and re-levels the tilt. |
 
 ### Dinosaur dig 🦖
 
-Five toys are buried under the sand each round: four dinosaurs (T-rex, triceratops, stegosaurus, long-neck, pterodactyl) plus a dino egg or a fossil bone. The sand over them is packed down and shows faint lumps in their shapes (no lumps on the *Hidden* setting; the dinosaurs can also be switched off in settings). Dig with a finger, blast with the hose, or tilt the sand away. Once most of a toy is showing, it roars (the egg and bone play a chime), does a little happy dance and sparkles. Tap 🌊 to bury a new set.
+Each round, four dinosaurs (T-rex, triceratops, stegosaurus, long-neck, pterodactyl) and two treasures (dino egg, fossil bone, treasure chest, gem or ammonite) are buried. The sand over them is packed down and shows faint lumps in their shapes, unless the depth is set to *Hidden*. The dinosaurs can also be switched off in settings. Uncover them by digging, shovelling, hosing, driving the truck or tilting. When most of a toy is showing, it roars (treasures chime), dances and sparkles, and its slot in the **shelf** at the top-left fills in. Find them all for confetti and a fanfare; the 🌊 button then wiggles to offer a new dig.
 
 **Tilt** the phone and the sand slides downhill, piles against the low wall, and shows the blue floor at the high end. **Shake** the phone and the sand loosens and settles flat.
 
@@ -39,9 +43,13 @@ On every frame:
 3. **Water.** Water flows toward lower water level, including phone tilt (real tilt, not the exaggerated sand tilt). With the water table on, any spot whose surface is below the table seeps full of water. Moving water drags sand downhill, so it erodes channels. Sand under standing water is saturated and slumps. Water soaks into the sand over time.
 4. **Airborne grains and droplets.** Poured and flicked grains, and the hose's droplets, are individual particles. They fall under gravity, cast shadows and join the sand where they land.
 
-Sand is conserved: anything dug or stamped out is pushed into ridges and rims, and nothing disappears. The only exception is the 🪣, which adds sand.
+Sand is conserved by digging, shovelling, the truck, tilting, water and wind: anything moved is pushed into ridges, rims, piles and drifts, and nothing disappears. Stamps and footprints pack the sand down a little under them (that's what keeps imprints crisp), and the 🪣 and the castle mould add sand.
 
-The lighting is computed from the surface slope, with light coming from a low sun at the top-left. Piles and ridges also cast soft shadows. That shading is what makes grooves, piles and imprints look 3-D.
+The lighting is computed from the surface slope, with the sun at the top-left at the height chosen in settings. Piles and ridges cast soft shadows, damp sand has a glossy sheen, and puddle edges are frothy. That shading is what makes grooves, piles and imprints look 3-D.
+
+The fan's wind is an extra push on the loose surface layer. It gusts and sways, and nudges sand into ripples across the wind that creep downwind.
+
+To save battery and keep things smooth, the tray is split into 16×16-cell tiles, and calm tiles sleep. The physics only runs where sand is moving or something has just disturbed it, and every tile gets a check twice a second. On older phones the app also drops to fewer physics passes per frame automatically.
 
 Real sand needs about 35° of tilt to slide. The tilt-sensitivity setting makes the tray steadier than real sand (Low and Medium) or about the same (High), so a toddler's wobbly grip doesn't send everything sliding; water always feels the phone's real tilt.
 
@@ -52,6 +60,7 @@ Real sand needs about 35° of tilt to slide. The tilt-sensitivity setting makes 
   - **Tilt sensitivity:** *Low* (the default; flat sand starts to slide at about 50° of tilt and only a hard shake counts), *Medium* (about 42°) or *High* (about 34°, close to real sand). Piles and steep walls give way a little sooner.
   - **Buried dinosaurs:** *Off* (no toys), *Shallow* (just under the surface, easy finds), *Medium*, *Deep* (thick sand, faint lumps) or *Hidden* (buried under dead-flat sand with no lumps at all, so finding them is pure exploring). Changing it washes the tray smooth and buries a new set.
   - **Water in low spots (for moats):** *Off*, *Low* or *High*. Like digging near the sea: any hole, trench or moat dug below the water table slowly fills with seep-in water, and drains back if filled in. *Low* needs a deep dig; *High* fills even shallow scrapes and dune hollows. The water stays level with real gravity, so tilting sloshes moats toward the low side.
+  - **Sun:** *Low* (long shadows that make prints and stamps stand out), *Midday* (the default) or *High*.
   - **Background:** *Rocky* (the default: dark pebbles around the sandbox) or *Sky blue*.
   - **Sound:** on or off.
 
@@ -61,8 +70,44 @@ Real sand needs about 35° of tilt to slide. The tilt-sensitivity setting makes 
 - **Desktop testing:** the arrow keys tilt the tray, `s` shakes it and holding `f` blows the fan.
 - **Microphone:** it's only switched on while a fan is on the sand, and it's only used to measure how hard someone is blowing. Nothing is recorded or sent anywhere. On some iPhones, sound from the app plays a little quieter while the microphone is on.
 
+## Project layout
+
+| Path | What's in it |
+| --- | --- |
+| `index.html` | The page: the sandbox, the toolbar, the start screen and the settings panel |
+| `css/style.css` | All the styling |
+| `js/core.js` | Settings, the sand grid, sleeping tiles, and the granular physics (avalanching and momentum flow) |
+| `js/motion.js`, `js/particles.js`, `js/water.js` | Tilt and shake; airborne grains and droplets; water flow, the water table and erosion |
+| `js/dig.js`, `js/stamps.js`, `js/shovel.js`, `js/mould.js`, `js/prints.js` | Finger digging, stamps, shovel, castle mould, footprints |
+| `js/hose.js`, `js/rain.js`, `js/dye.js`, `js/truck.js`, `js/fan.js`, `js/wave.js` | The other tools |
+| `js/treasure.js` | Buried toys, finding them, and the shelf |
+| `js/render.js`, `js/sound.js`, `js/input.js`, `js/ui.js`, `js/main.js` | Drawing, sound, touch handling, toolbar and settings, the main loop |
+| `help.html`, `help/` | The illustrated guide and its pictures |
+| `sw.js`, `manifest.webmanifest`, icons | Offline support and home-screen install |
+| `tests/run.js` | Automated checks |
+
+The scripts are plain browser JavaScript that share one global scope and load in the order listed in `index.html`. There's no build step.
+
+## Tests
+
+```
+npm install      # once: installs Playwright
+npx playwright install chromium   # once, if Playwright has no browser yet
+npm test
+```
+
+The tests drive the real app in a headless browser and check that:
+- it loads without errors on a large and a small phone;
+- digging, shovelling, tilting and the fan neither lose nor create sand;
+- toys are found when uncovered and the shelf fills in, and the Hidden and Off settings work;
+- the castle mould builds a tower, the hose fills a hole, and the truck drives;
+- the tilt thresholds match the settings;
+- settings are remembered, and Done is reachable on a short screen;
+- the guide opens and closes;
+- calm sand sleeps.
+
 ## Hosting
 
-It's a static site (`index.html` plus icons, a manifest and a service worker), so any HTTPS static host works. With **GitHub Pages**: repository Settings → Pages → deploy from the branch, root folder. Then open the URL on the phone and choose *Add to Home Screen*.
+It's a static site (HTML, CSS, JavaScript, icons, a manifest and a service worker), so any HTTPS static host works. With **GitHub Pages**: repository Settings → Pages → deploy from the branch, root folder. Then open the URL on the phone and choose *Add to Home Screen*.
 
 To try it locally: `python3 -m http.server` and open `http://localhost:8000`. Tilt won't work without HTTPS on a phone.
