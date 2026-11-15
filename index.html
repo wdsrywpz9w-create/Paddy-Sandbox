@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sandbox">
+<meta name="theme-color" content="#5cc4ea">
+<title>Paddy's Sandbox</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root {
+    --b: min(64px, calc((100vw - 64px) / 6.3));
+    --gap: min(10px, 2vw);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    touch-action: none; overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    font-family: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif;
+  }
+  body {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    background: linear-gradient(180deg, #7fd3f2 0%, #5cc4ea 55%, #3fb0dc 100%);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  }
+  #frame {
+    flex: 1; min-height: 0;
+    margin: 10px 10px 8px;
+    padding: 12px;
+    border-radius: 28px;
+    background:
+      repeating-linear-gradient(92deg, rgba(255,255,255,.07) 0 3px, rgba(0,0,0,.05) 3px 9px, rgba(255,255,255,0) 9px 17px),
+      linear-gradient(160deg, #d99a5b, #b8743a 60%, #a5652f);
+    box-shadow: 0 8px 0 #8a5326, 0 14px 24px rgba(0,0,0,.25), inset 0 2px 0 rgba(255,255,255,.35);
+  }
+  #tray {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 18px; overflow: hidden;
+    background: #4aa3d4;
+  }
+  #sand { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #shade {
+    position: absolute; inset: 0; pointer-events: none; border-radius: 18px;
+    box-shadow: inset 0 7px 14px rgba(60,30,0,.45), inset 0 -3px 8px rgba(255,255,255,.18),
+                inset 5px 0 10px rgba(60,30,0,.25), inset -5px 0 10px rgba(60,30,0,.25);
+  }
+  #ui {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 4px 8px calc(12px + env(safe-area-inset-bottom));
+  }
+  .row { display: flex; gap: var(--gap); justify-content: center; }
+  .btn {
+    width: var(--b); height: var(--b); padding: 0;
+    border: none; border-radius: 50%;
+    background: #fffdf6;
+    box-shadow: 0 5px 0 rgba(0,40,70,.25);
+    display: grid; place-items: center;
+    font-size: calc(var(--b) * .52); line-height: 1;
+    transition: transform .18s cubic-bezier(.3,1.6,.5,1), background .2s;
+    touch-action: none;
+  }
+  .btn canvas { width: 80%; height: 80%; pointer-events: none; }
+  .btn.sel {
+    background: #ffe36b;
+    transform: scale(1.14) translateY(-3px);
+    box-shadow: 0 0 0 4px #fff, 0 7px 0 rgba(0,40,70,.25);
+  }
+  .btn.pop { animation: pop .35s; }
+  @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.3) rotate(-8deg); } 100% { transform: scale(1.14) translateY(-3px); } }
+  .btn.action.sel { background: #fffdf6; transform: none; box-shadow: 0 5px 0 rgba(0,40,70,.25); }
+  .btn.small { opacity: .85; }
+
+  #start {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+    background: radial-gradient(circle at 50% 40%, #ffe9a8, #f6c66a 60%, #e8a94a);
+    color: #7a4a12; text-align: center;
+    transition: opacity .4s;
+  }
+  #start.hide { opacity: 0; pointer-events: none; }
+  #play {
+    width: 170px; height: 170px; border-radius: 50%; border: none;
+    background: #fff; font-size: 92px; line-height: 1;
+    box-shadow: 0 10px 0 #c8862f, 0 18px 30px rgba(0,0,0,.2);
+    animation: bob 1.6s ease-in-out infinite;
+  }
+  @keyframes bob { 50% { transform: translateY(-12px) scale(1.04); } }
+  #start .hint { font-size: 26px; font-weight: 800; }
+  #start .small { font-size: 14px; opacity: .75; max-width: 300px; line-height: 1.4; }
+</style>
+</head>
+<body>
+  <div id="frame"><div id="tray"><canvas id="sand"></canvas><div id="shade"></div></div></div>
+  <div id="ui">
+    <div class="row" id="tools"></div>
+    <div class="row" id="stamps"></div>
+  </div>
+
+  <div id="start">
+    <button id="play" aria-label="Play">🏖️</button>
+    <div class="hint">Tap to play!</div>
+    <div class="small">Grown-ups: hold the phone how your little one will hold it, then tap. Tilt to pour the sand, tap 🌊 to smooth it and re-level.</div>
+  </div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Paddy's Sandbox — a height-field granular sand simulation.
+   Each cell holds a column of sand (height, in cell-widths), a grain tint
+   that travels with the sand, a compaction ("firm") value, and wetness.
+   Sand flows to neighbours whenever the local slope — measured against the
+   phone's real gravity vector — exceeds the angle of repose.
+   ===================================================================== */
+
+const tray = document.getElementById('tray');
+const cv = document.getElementById('sand');
+const ctx = cv.getContext('2d');
+const small = document.createElement('canvas');
+const sctx = small.getContext('2d');
+
+// ---------- tunables ----------
+const P = {
+  T: 0.72,        // static angle of repose (slope ~36°)
+  Td: 0.52,       // dynamic (already-moving) repose — avalanches run on
+  COH: 4.0,       // extra slope pressed/compacted sand can hold
+  WETC: 1.4,      // extra slope wet sand can hold
+  k: 0.1,         // flow rate
+  tiltGain: 2.2,  // makes ~20° of tilt enough to start sand sliding
+  iters: 3,       // relaxation passes per frame
+  maxH: 90,
+};
+
+let W = 0, H = 0, N = 0, CELL = 2, cssW = 0, cssH = 0, DPR = 1;
+let h, c, dh, cin, outm, act, firm, wet, thr, img, img32;
+let FINGER_R = 16, STAMP_R = 60;
+let wetActive = false;
+
+// ---------- grid setup ----------
+function makeArrays(n) {
+  return {
+    h: new Float32Array(n), c: new Float32Array(n), firm: new Float32Array(n), wet: new Float32Array(n),
+  };
+}
+
+function freshSand() {
+  const p1 = Math.random() * 6, p2 = Math.random() * 6, p3 = Math.random() * 6;
+  const base = 22 / CELL;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, X = x * CELL, Y = y * CELL;
+    const dune = Math.sin(X * 0.018 + p1) * Math.sin(Y * 0.014 + p2) * 1.0
+               + Math.sin((X + Y) * 0.031 + p3) * 0.45
+               + Math.sin(X * 0.06 - Y * 0.045 + p1) * 0.2;
+    h[i] = base + dune * (6 / CELL);
+    c[i] = grainTint();
+    firm[i] = 0; wet[i] = 0;
+  }
+}
+
+function grainTint() {
+  const r = Math.random();
+  if (r < 0.04) return 0.72 + Math.random() * 0.08;   // dark grain
+  if (r < 0.08) return 1.15 + Math.random() * 0.1;    // pale / sparkly grain
+  return 0.9 + Math.random() * 0.17;
+}
+
+function resize() {
+  const r = tray.getBoundingClientRect();
+  const nw = Math.round(r.width), nh = Math.round(r.height);
+  if (nw < 10 || nh < 10) return;
+  if (nw === cssW && nh === cssH) return;
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(nw * DPR); cv.height = Math.round(nh * DPR);
+  const newCell = Math.max(2, Math.round(Math.sqrt(nw * nh / 80000)));
+  const nW = Math.ceil(nw / newCell), nH = Math.ceil(nh / newCell);
+  const fresh = makeArrays(nW * nH);
+  if (h) { // resample existing sand so a rotation / toolbar change keeps the picture
+    const scale = CELL / newCell;
+    for (let y = 0; y < nH; y++) for (let x = 0; x < nW; x++) {
+      const ox = Math.min(W - 1, Math.floor(x * W / nW)), oy = Math.min(H - 1, Math.floor(y * H / nH));
+      const o = oy * W + ox, i = y * nW + x;
+      fresh.h[i] = h[o] * scale; fresh.c[i] = c[o]; fresh.firm[i] = firm[o]; fresh.wet[i] = wet[o];
+    }
+  }
+  const hadSand = !!h;
+  W = nW; H = nH; N = W * H; CELL = newCell; cssW = nw; cssH = nh;
+  h = fresh.h; c = fresh.c; firm = fresh.firm; wet = fresh.wet;
+  dh = new Float32Array(N); cin = new Float32Array(N); outm = new Float32Array(N);
+  thr = new Float32Array(N); act = new Uint8Array(N);
+  small.width = W; small.height = H;
+  img = sctx.createImageData(W, H);
+  img32 = new Uint32Array(img.data.buffer);
+  FINGER_R = Math.max(13, Math.min(22, nw * 0.045));
+  STAMP_R = Math.max(42, Math.min(92, Math.min(nw, nh) * 0.17));
+  if (!hadSand) freshSand();
+  buildStampSprites();
+  makeGrain();
+}
+
+// ---------- the physics: granular relaxation ----------
+let flowThisFrame = 0;
+
+let rseed = 12345;
+function frand() { rseed = (rseed * 1664525 + 1013904223) | 0; return (rseed >>> 8) / 16777216; }
+
+function relax(tx, ty, agit) {
+  // local references keep the hot loops fast
+  const h_ = h, dh_ = dh, outm_ = outm, cin_ = cin, c_ = c, thr_ = thr, act_ = act, firm_ = firm, wet_ = wet;
+  const n = N, w = W, hgt = H;
+  const soft = 1 - 0.75 * agit;
+  const T = P.T * soft, Td = P.Td * soft, COH = P.COH * soft, WC = P.WETC;
+  for (let i = 0; i < n; i++) thr_[i] = (act_[i] ? Td : T) + firm_[i] * COH + wet_[i] * WC;
+  dh_.fill(0); cin_.fill(0); outm_.fill(0);
+  const k = P.k, kd = P.k * 0.7, S2 = Math.SQRT2, dse = tx + ty, dsw = ty - tx;
+  let flow = 0;
+  const mv = (i, j, d, ti, tj, kk) => {
+    let q;
+    if (d > ti) {
+      q = (d - ti) * kk; const cap = h_[i] * 0.08; if (q > cap) q = cap;
+      if (q < 1e-4) return;
+      dh_[i] -= q; dh_[j] += q; outm_[i] += q; cin_[j] += c_[i] * q; flow += q;
+    } else if (d < -tj) {
+      q = (-d - tj) * kk; const cap = h_[j] * 0.08; if (q > cap) q = cap;
+      if (q < 1e-4) return;
+      dh_[j] -= q; dh_[i] += q; outm_[j] += q; cin_[i] += c_[j] * q; flow += q;
+    }
+  };
+  const Wm = w - 1;
+  for (let y = 0; y < hgt; y++) {
+    const row = y * w, notLast = y < hgt - 1;
+    for (let x = 0; x < w; x++) {
+      const i = row + x, hi = h_[i], ti = thr_[i];
+      if (x < Wm) mv(i, i + 1, hi - h_[i + 1] + tx, ti, thr_[i + 1], k);
+      if (notLast) {
+        const j = i + w;
+        mv(i, j, hi - h_[j] + ty, ti, thr_[j], k);
+        if (x < Wm) mv(i, j + 1, hi - h_[j + 1] + dse, ti * S2, thr_[j + 1] * S2, kd);
+        if (x > 0) mv(i, j - 1, hi - h_[j - 1] + dsw, ti * S2, thr_[j - 1] * S2, kd);
+      }
+    }
+  }
+  // Bulk sliding: where the total downhill slope (tilt + terrain) beats the
+  // angle of repose, a thin surface sheet of sand slides as a body (upwind advection).
+  for (let y = 0; y < hgt; y++) {
+    const row = y * w, up = y > 0 ? -w : 0, dn = y < hgt - 1 ? w : 0;
+    for (let x = 0; x < w; x++) {
+      const i = row + x, hi = h_[i];
+      if (hi < 0.05) continue;
+      const lf = x > 0 ? -1 : 0, rt = x < Wm ? 1 : 0;
+      const sx = tx - (h_[i + rt] - h_[i + lf]) * 0.5, sy = ty - (h_[i + dn] - h_[i + up]) * 0.5;
+      const t = thr_[i] * 1.05, m2 = sx * sx + sy * sy;
+      if (m2 <= t * t) continue;
+      let v = (Math.sqrt(m2) - t) * 0.35; if (v > 0.3) v = 0.3;
+      const q = (hi < 2.5 ? hi : 2.5) * v;
+      const ax = Math.abs(sx), ay = Math.abs(sy), inv = 1 / (ax + ay);
+      const jx = sx > 0 ? (x < Wm ? i + 1 : -1) : (x > 0 ? i - 1 : -1);
+      const jy = sy > 0 ? (y < hgt - 1 ? i + w : -1) : (y > 0 ? i - w : -1);
+      const qx = jx >= 0 ? q * ax * inv : 0, qy = jy >= 0 ? q * ay * inv : 0, tot = qx + qy;
+      if (tot < 1e-4) continue;
+      if (qx > 0) { dh_[jx] += qx; cin_[jx] += c_[i] * qx; }
+      if (qy > 0) { dh_[jy] += qy; cin_[jy] += c_[i] * qy; }
+      dh_[i] -= tot; outm_[i] += tot; flow += tot;
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    const o = outm_[i], d = dh_[i];
+    if (o === 0 && d === 0) { act_[i] = 0; continue; }
+    const nh = h_[i] + d, inflow = d + o;
+    if (nh > 1e-5) c_[i] = (c_[i] * (h_[i] - o) + cin_[i]) / nh;
+    h_[i] = nh < 0 ? 0 : nh;
+    act_[i] = o > 0.004 ? 1 : 0;
+    if (inflow > 0.02) { const f = inflow * 0.5; c_[i] += ((0.88 + frand() * 0.2) - c_[i]) * (f < 0.35 ? f : 0.35); } // tumbling grains
+    if (inflow > 0.003 && firm_[i] > 0) { const f = 1 - inflow * 0.35; firm_[i] *= f > 0 ? f : 0; }
+  }
+  flowThisFrame += flow;
+}
+
+// ---------- tilt, shake ----------
+const D2R = Math.PI / 180;
+let ori = null, g0 = null, needCal = true;
+let tiltX = 0, tiltY = 0, agit = 0;
+const keyTilt = { x: 0, y: 0 };
+
+function gvec(o) {
+  const b = o.b * D2R, g = o.g * D2R;
+  return [Math.cos(b) * Math.sin(g), Math.sin(b), Math.cos(b) * Math.cos(g)];
+}
+function norm(v) { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+
+window.addEventListener('deviceorientation', e => {
+  if (e.beta == null || e.gamma == null) return;
+  ori = { b: e.beta, g: e.gamma };
+  if (needCal) { g0 = norm(gvec(ori)); needCal = false; }
+});
+
+window.addEventListener('devicemotion', e => {
+  const a = e.acceleration;
+  let m = 0;
+  if (a && a.x != null) m = Math.hypot(a.x, a.y, a.z);
+  else if (e.accelerationIncludingGravity && e.accelerationIncludingGravity.x != null) {
+    const g = e.accelerationIncludingGravity; m = Math.abs(Math.hypot(g.x, g.y, g.z) - 9.81);
+  }
+  if (m > 13) agit = Math.min(1, agit + (m - 13) * 0.02);
+});
+
+function screenAngle() {
+  if (screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
+  return typeof window.orientation === 'number' ? window.orientation : 0;
+}
+
+function updateTilt() {
+  let gx = 0, gy = 0, gz = 1;
+  if (ori && g0) {
+    const g = norm(gvec(ori));
+    // Basis that treats the "calibrated" pose as level.
+    let by = [-g0[1] * g0[0], 1 - g0[1] * g0[1], -g0[1] * g0[2]];
+    if (Math.hypot(by[0], by[1], by[2]) < 1e-3) by = [0, 0, 1];
+    by = norm(by);
+    const bx = norm(cross(by, g0));
+    const dx = dot(g, bx), dy = dot(g, by);
+    gz = dot(g, g0);
+    const a = screenAngle() * D2R, ca = Math.cos(a), sa = Math.sin(a);
+    gx = dx * ca + dy * sa; gy = -dx * sa + dy * ca;
+  }
+  gx += keyTilt.x; gy += keyTilt.y;
+  gz = Math.max(gz, 0.3);
+  let tx = P.tiltGain * gx / gz, ty = P.tiltGain * gy / gz;
+  tx = Math.max(-3, Math.min(3, tx)); ty = Math.max(-3, Math.min(3, ty));
+  tiltX += (tx - tiltX) * 0.15; tiltY += (ty - tiltY) * 0.15;
+}
+
+window.addEventListener('keydown', e => {
+  const s = 0.45;
+  if (e.key === 'ArrowLeft') keyTilt.x = -s;
+  if (e.key === 'ArrowRight') keyTilt.x = s;
+  if (e.key === 'ArrowUp') keyTilt.y = -s;
+  if (e.key === 'ArrowDown') keyTilt.y = s;
+  if (e.key === 's') agit = 1;
+});
+window.addEventListener('keyup', e => {
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') keyTilt.x = 0;
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') keyTilt.y = 0;
+});
+
+// ---------- flying / falling grains ----------
+const parts = [];
+const MAXP = 3500;
+
+function spawnGrain(x, y, z, vx, vy, vz, m, tint) {
+  if (parts.length >= MAXP) return;
+  parts.push({ x, y, z, vx, vy, vz, m, c: tint });
+}
+
+function updateParticles() {
+  for (let n = parts.length - 1; n >= 0; n--) {
+    const p = parts[n];
+    p.vz -= 0.22; p.x += p.vx; p.y += p.vy; p.z += p.vz;
+    p.vx *= 0.985; p.vy *= 0.985;
+    if (p.x < 0) { p.x = 0; p.vx = -p.vx * 0.3; } else if (p.x > W - 1) { p.x = W - 1; p.vx = -p.vx * 0.3; }
+    if (p.y < 0) { p.y = 0; p.vy = -p.vy * 0.3; } else if (p.y > H - 1) { p.y = H - 1; p.vy = -p.vy * 0.3; }
+    const i = (p.y | 0) * W + (p.x | 0);
+    if (p.z <= h[i]) {
+      const nh = h[i] + p.m;
+      if (nh < P.maxH) { c[i] = (c[i] * h[i] + p.c * p.m) / nh; h[i] = nh; }
+      firm[i] = 0; act[i] = 1;
+      parts[n] = parts[parts.length - 1]; parts.pop();
+    }
+  }
+}
+
+// ---------- finger: plowing through sand ----------
+function plow(px, py, dirx, diry, speed) {
+  const r = FINGER_R / CELL, r2 = r * r, R = r * 1.95;
+  const depth = 9 / CELL;
+  const x0 = Math.max(0, Math.floor(px - R)), x1 = Math.min(W - 1, Math.ceil(px + R));
+  const y0 = Math.max(0, Math.floor(py - R)), y1 = Math.min(H - 1, Math.ceil(py + R));
+  let sum = 0, n = 0;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const dx = x - px, dy = y - py; if (dx * dx + dy * dy < r2) { sum += h[y * W + x]; n++; }
+  }
+  if (!n) return;
+  const ref = sum / n;
+  let removed = 0, cm = 0;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const dx = x - px, dy = y - py, d2 = dx * dx + dy * dy;
+    if (d2 >= r2) continue;
+    const i = y * W + x;
+    let target = ref - depth * Math.sqrt(1 - d2 / r2);
+    if (target < 0) target = 0;
+    if (h[i] > target) { const rem = (h[i] - target) * 0.5; h[i] -= rem; removed += rem; cm += c[i] * rem; }
+    firm[i] = 0; act[i] = 1;
+    if (wet[i] > 0) wet[i] *= 0.97;
+  }
+  if (removed <= 0) return;
+  const tint = cm / removed;
+  // a few grains get flicked into the air by a fast finger
+  if (speed > 0.9 && dirx * dirx + diry * diry > 0) {
+    const nfl = Math.min(8, (speed * 3) | 0);
+    for (let k = 0; k < nfl; k++) {
+      const m = Math.min(removed * 0.05, 0.08); if (m <= 0) break;
+      removed -= m;
+      const sp = (0.6 + Math.random()) * speed * 1.2 / CELL * 2;
+      const a = Math.atan2(diry, dirx) + (Math.random() - 0.5) * 1.2;
+      spawnGrain(px + Math.cos(a) * r, py + Math.sin(a) * r, ref + 1,
+                 Math.cos(a) * sp, Math.sin(a) * sp, 1 + Math.random() * 2.2, m, tint);
+    }
+  }
+  // the rest is bulldozed into a bow-wave ahead of and beside the finger
+  const hasDir = dirx * dirx + diry * diry > 0;
+  const wgt = (dx, dy) => {
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < r * 0.85 || d > R) return 0;
+    let w = 1 - Math.abs(d - r * 1.35) / (r * 0.6); if (w <= 0) return 0;
+    if (hasDir) { const f = (dx * dirx + dy * diry) / d + 0.35; w *= f > 0 ? f : 0; }
+    return w;
+  };
+  let ws = 0;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) ws += wgt(x - px, y - py);
+  if (ws <= 0) return;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const w = wgt(x - px, y - py); if (!w) continue;
+    const i = y * W + x, q = removed * w / ws, nh = h[i] + q;
+    c[i] = (c[i] * h[i] + tint * q) / nh; h[i] = nh; firm[i] = 0; act[i] = 1;
+  }
+}
+
+// ---------- stamps ----------
+const STAMPS = ['turtle', 'starfish', 'shell', 'fish', 'crab', 'heart'];
+const PAL = {
+  turtle:   { a: '#86cf6c', b: '#3e8c4c', d: '#c3eaa0', e: '#1d2a1d' },
+  starfish: { a: '#ff8a3d', b: '#ff8a3d', d: '#ffd38f', e: '#3a1d08' },
+  shell:    { a: '#ffb7c9', b: '#f28aab', d: '#e0688c', e: '#e0688c' },
+  fish:     { a: '#4fc3f7', b: '#ffd54f', d: '#1f86c4', e: '#10202a' },
+  crab:     { a: '#f0524f', b: '#f0524f', d: '#a51b1b', e: '#1a0a0a' },
+  heart:    { a: '#ff5c8a', b: '#ff5c8a', d: '#ffc4d5', e: '#ffc4d5' },
+};
+// In the depth mask, white = pressed deepest, grey = details that stay raised.
+const MASKPAL = { a: '#ffffff', b: '#ffffff', d: '#7a7a7a', e: '#5a5a5a' };
+
+function ell(g, x, y, rx, ry, rot) { g.beginPath(); g.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); g.fill(); }
+function dotc(g, x, y, r) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+
+function drawShape(g, type, p) {
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  switch (type) {
+    case 'turtle': {
+      g.fillStyle = p.a;
+      ell(g, -0.52, -0.38, 0.32, 0.15, 0.6); ell(g, 0.52, -0.38, 0.32, 0.15, -0.6);
+      ell(g, -0.42, 0.5, 0.22, 0.13, -0.7); ell(g, 0.42, 0.5, 0.22, 0.13, 0.7);
+      ell(g, 0, -0.74, 0.18, 0.21, 0);
+      g.beginPath(); g.moveTo(-0.08, 0.6); g.lineTo(0.08, 0.6); g.lineTo(0, 0.87); g.fill();
+      g.fillStyle = p.b; ell(g, 0, 0.06, 0.5, 0.6, 0);
+      g.strokeStyle = p.d; g.lineWidth = 0.075;
+      const pts = [];
+      for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3 + Math.PI / 6; pts.push([Math.cos(a) * 0.2, 0.06 + Math.sin(a) * 0.23, a]); }
+      g.beginPath(); pts.forEach((q, k) => k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.stroke();
+      g.beginPath();
+      pts.forEach(q => { g.moveTo(q[0], q[1]); g.lineTo(Math.cos(q[2]) * 0.46, 0.06 + Math.sin(q[2]) * 0.56); });
+      g.stroke();
+      g.beginPath(); g.ellipse(0, 0.06, 0.45, 0.55, 0, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = p.e; dotc(g, -0.08, -0.8, 0.04); dotc(g, 0.08, -0.8, 0.04);
+      break;
+    }
+    case 'starfish': {
+      g.beginPath();
+      for (let k = 0; k < 10; k++) {
+        const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? 0.4 : 0.92;
+        k ? g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+      g.closePath(); g.fillStyle = p.a; g.fill();
+      g.strokeStyle = p.a; g.lineWidth = 0.18; g.stroke();
+      g.fillStyle = p.d;
+      for (let k = 0; k < 5; k++) {
+        const a = -Math.PI / 2 + k * 2 * Math.PI / 5;
+        for (const t of [0.24, 0.43, 0.61, 0.78]) dotc(g, Math.cos(a) * t, Math.sin(a) * t, 0.06 * (1 - t * 0.45));
+      }
+      dotc(g, 0, 0, 0.09);
+      break;
+    }
+    case 'shell': {
+      const cx = 0, cy = 0.72, R1 = 1.32, a0 = -Math.PI * 0.8, a1 = -Math.PI * 0.2, ribs = 9;
+      const pt = (a, r) => [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+      g.fillStyle = p.b;
+      g.beginPath(); g.moveTo(-0.36, 0.6); g.lineTo(0.36, 0.6); g.lineTo(0.26, 0.92); g.lineTo(-0.26, 0.92); g.closePath(); g.fill();
+      g.fillStyle = p.a;
+      g.beginPath(); g.moveTo(cx, cy);
+      for (let r = 0; r < ribs; r++) {
+        const s = a0 + (a1 - a0) * r / ribs, e = a0 + (a1 - a0) * (r + 1) / ribs, m = (s + e) / 2;
+        if (r === 0) { const q = pt(s, R1); g.lineTo(q[0], q[1]); }
+        const cp = pt(m, R1 * 1.1), q = pt(e, R1); g.quadraticCurveTo(cp[0], cp[1], q[0], q[1]);
+      }
+      g.closePath(); g.fill();
+      g.strokeStyle = p.d; g.lineWidth = 0.07; g.beginPath();
+      for (let r = 1; r < ribs; r++) {
+        const a = a0 + (a1 - a0) * r / ribs, q0 = pt(a, 0.22), q = pt(a, R1 * 0.96);
+        g.moveTo(q0[0], q0[1]); g.lineTo(q[0], q[1]);
+      }
+      g.stroke();
+      break;
+    }
+    case 'fish': {
+      g.fillStyle = p.b;
+      g.beginPath(); g.moveTo(0.38, 0); g.lineTo(0.95, -0.46); g.quadraticCurveTo(0.78, 0, 0.95, 0.46); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(-0.38, -0.3); g.quadraticCurveTo(-0.02, -0.78, 0.26, -0.28); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(-0.05, 0.3); g.quadraticCurveTo(0.1, 0.62, 0.25, 0.28); g.closePath(); g.fill();
+      g.fillStyle = p.a; ell(g, -0.12, 0, 0.62, 0.4, 0);
+      g.strokeStyle = p.d; g.lineWidth = 0.07;
+      g.beginPath(); g.arc(-0.44, 0, 0.26, -0.95, 0.95); g.stroke();
+      for (const sx of [-0.04, 0.2]) for (const sy of [-0.14, 0.12]) { g.beginPath(); g.arc(sx, sy, 0.12, -1.2, 1.2); g.stroke(); }
+      g.fillStyle = p.e; dotc(g, -0.52, -0.1, 0.075);
+      break;
+    }
+    case 'crab': {
+      g.strokeStyle = p.a; g.lineWidth = 0.13;
+      for (const s of [-1, 1]) {
+        for (let k = 0; k < 3; k++) {
+          g.beginPath(); g.moveTo(s * 0.35, 0.12 + k * 0.12); g.lineTo(s * 0.78, 0.14 + k * 0.17); g.lineTo(s * 0.92, 0.42 + k * 0.16); g.stroke();
+        }
+        g.lineWidth = 0.16; g.beginPath(); g.moveTo(s * 0.3, -0.1); g.lineTo(s * 0.56, -0.42); g.stroke(); g.lineWidth = 0.13;
+        g.fillStyle = p.a; dotc(g, s * 0.6, -0.62, 0.23);
+        g.save(); g.globalCompositeOperation = 'destination-out';
+        const ca = -Math.PI / 2 + s * 0.45;
+        g.beginPath(); g.moveTo(s * 0.6, -0.62); g.arc(s * 0.6, -0.62, 0.3, ca - 0.33, ca + 0.33); g.closePath(); g.fill();
+        g.restore();
+      }
+      g.fillStyle = p.b; ell(g, 0, 0.1, 0.56, 0.38, 0);
+      g.strokeStyle = p.a; g.lineWidth = 0.065;
+      for (const s of [-1, 1]) { g.beginPath(); g.moveTo(s * 0.13, -0.18); g.lineTo(s * 0.2, -0.42); g.stroke(); }
+      g.fillStyle = p.e; dotc(g, -0.2, -0.45, 0.085); dotc(g, 0.2, -0.45, 0.085);
+      g.strokeStyle = p.d; g.lineWidth = 0.065; g.beginPath(); g.arc(0, 0.02, 0.22, 0.35, Math.PI - 0.35); g.stroke();
+      break;
+    }
+    case 'heart': {
+      const path = () => { g.beginPath(); g.moveTo(0, 0.85); g.bezierCurveTo(-1.25, 0.05, -0.8, -1.05, 0, -0.42); g.bezierCurveTo(0.8, -1.05, 1.25, 0.05, 0, 0.85); };
+      g.fillStyle = p.a; path(); g.fill();
+      g.save(); g.translate(0, 0.06); g.scale(0.6, 0.6); g.strokeStyle = p.d; g.lineWidth = 0.15; path(); g.stroke(); g.restore();
+      break;
+    }
+  }
+}
+
+const maskCanvas = document.createElement('canvas');
+const mctx = maskCanvas.getContext('2d', { willReadFrequently: true });
+
+function boxBlur(src, S, r) {
+  const tmp = new Float32Array(S * S), out = new Float32Array(S * S), inv = 1 / (2 * r + 1);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    let s = 0; for (let k = -r; k <= r; k++) { const xx = x + k; if (xx >= 0 && xx < S) s += src[y * S + xx]; }
+    tmp[y * S + x] = s * inv;
+  }
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    let s = 0; for (let k = -r; k <= r; k++) { const yy = y + k; if (yy >= 0 && yy < S) s += tmp[yy * S + x]; }
+    out[y * S + x] = s * inv;
+  }
+  return out;
+}
+
+function makeMask(type, rot) {
+  const R = STAMP_R / CELL, pad = Math.ceil(16 / CELL) + 3;
+  const S = Math.ceil(R * 2.3 + pad * 2);
+  maskCanvas.width = S; maskCanvas.height = S;
+  mctx.clearRect(0, 0, S, S);
+  mctx.save(); mctx.translate(S / 2, S / 2); mctx.rotate(rot); mctx.scale(R, R);
+  drawShape(mctx, type, MASKPAL); mctx.restore();
+  const d = mctx.getImageData(0, 0, S, S).data;
+  const cov = new Float32Array(S * S);
+  for (let i = 0; i < S * S; i++) cov[i] = d[i * 4] * d[i * 4 + 3] / 65025;
+  const dep = boxBlur(cov, S, 1);
+  const solid = new Float32Array(S * S);
+  for (let i = 0; i < S * S; i++) solid[i] = cov[i] > 0.03 ? 1 : 0;
+  const near = boxBlur(solid, S, Math.max(1, Math.round(3 / CELL)));
+  const far = boxBlur(boxBlur(solid, S, Math.round(6 / CELL) + 1), S, Math.round(6 / CELL) + 1);
+  const rim = new Float32Array(S * S);
+  for (let i = 0; i < S * S; i++) rim[i] = near[i] > 0.02 ? 0 : far[i];
+  return { S, dep, near, rim };
+}
+
+function pressStamp(type, cx, cy, rot) {
+  const { S, dep, near, rim } = makeMask(type, rot);
+  const ox = Math.round(cx - S / 2), oy = Math.round(cy - S / 2);
+  const D = 8 / CELL;
+  let sum = 0, n = 0;
+  for (let k = 0; k < S * S; k++) {
+    if (dep[k] < 0.5) continue;
+    const x = ox + (k % S), y = oy + ((k / S) | 0);
+    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    sum += h[y * W + x]; n++;
+  }
+  if (!n) return;
+  const mean = sum / n;
+  let removed = 0, cm = 0;
+  for (let k = 0; k < S * S; k++) {
+    const x = ox + (k % S), y = oy + ((k / S) | 0);
+    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    const i = y * W + x, m = dep[k];
+    if (m > 0.02) {
+      let target = mean + (h[i] - mean) * 0.35 - D * m;
+      if (target < 0) target = 0;
+      if (h[i] > target) { const rem = h[i] - target; removed += rem; cm += c[i] * rem; h[i] = target; }
+      firm[i] = Math.max(firm[i], Math.min(1, m * 1.6));
+      act[i] = 0;
+    } else if (near[k] > 0.02) {
+      firm[i] = Math.max(firm[i], 0.6); // sand squashed around the edge
+    }
+  }
+  // most of the volume is compacted; some is pushed up into a soft rim
+  let ws = 0;
+  for (let k = 0; k < S * S; k++) {
+    const x = ox + (k % S), y = oy + ((k / S) | 0);
+    if (x >= 0 && y >= 0 && x < W && y < H) ws += rim[k];
+  }
+  if (ws <= 0 || removed <= 0) return;
+  const push = removed * 0.16, tint = cm / removed;
+  for (let k = 0; k < S * S; k++) {
+    if (!rim[k]) continue;
+    const x = ox + (k % S), y = oy + ((k / S) | 0);
+    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    const i = y * W + x, q = push * rim[k] / ws, nh = h[i] + q;
+    c[i] = (c[i] * h[i] + tint * q) / nh; h[i] = nh; firm[i] = 0; act[i] = 1;
+  }
+}
+
+// colourful sprites for the press animation
+const sprites = {};
+function buildStampSprites() {
+  for (const t of STAMPS) {
+    const s = Math.ceil(STAMP_R * 2.4 * DPR), cnv = document.createElement('canvas');
+    cnv.width = cnv.height = s;
+    const g = cnv.getContext('2d');
+    g.translate(s / 2, s / 2); g.scale(STAMP_R * DPR, STAMP_R * DPR);
+    drawShape(g, t, PAL[t]);
+    sprites[t] = cnv;
+  }
+}
+
+const anims = [];
+function startStamp(type, cssX, cssY) {
+  const rot = (Math.random() - 0.5) * 0.7;
+  anims.push({ type, x: cssX, y: cssY, rot, t0: performance.now(), done: false });
+}
+
+function drawAnims(now) {
+  for (let n = anims.length - 1; n >= 0; n--) {
+    const a = anims[n], t = now - a.t0;
+    const DOWN = 130, UP = 380;
+    if (!a.done && t >= DOWN) {
+      a.done = true;
+      pressStamp(a.type, a.x / CELL, a.y / CELL, a.rot);
+      sound.stamp(STAMPS.indexOf(a.type));
+      if (navigator.vibrate) try { navigator.vibrate(18); } catch (e) {}
+    }
+    if (t > DOWN + UP) { anims.splice(n, 1); continue; }
+    let scale, alpha, lift;
+    if (t < DOWN) { const u = t / DOWN; scale = 1.35 - 0.35 * u * u; lift = 1 - u * u; alpha = 0.55 + 0.45 * u; }
+    else { const u = (t - DOWN) / UP; scale = 1 + 0.25 * u; lift = u; alpha = 1 - u; }
+    const spr = sprites[a.type], sz = spr.width / DPR * scale;
+    ctx.save();
+    ctx.translate(a.x, a.y); ctx.rotate(a.rot);
+    ctx.globalAlpha = alpha * 0.35;
+    ctx.filter = 'none';
+    ctx.drawImage(spr, -sz / 2 + 8 * lift + 2, -sz / 2 + 12 * lift + 3, sz, sz); // shadow-ish
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(spr, -sz / 2, -sz / 2, sz, sz);
+    ctx.restore();
+  }
+}
+
+// ---------- the wave (smooth + re-level) ----------
+let wave = null;
+function startWave() {
+  if (wave) return;
+  let s = 0; for (let i = 0; i < N; i++) s += h[i];
+  wave = { y: -40, mean: s / N, t0: performance.now() };
+  needCal = true; // whatever pose the phone is in now becomes "level"
+  if (!ori) needCal = true;
+  sound.wave();
+}
+function stepWave() {
+  if (!wave) return;
+  const t = performance.now() - wave.t0, dur = 1500;
+  wave.y = -60 + (cssH + 160) * Math.min(1, t / dur);
+  const rows = Math.min(H, Math.floor(wave.y / CELL));
+  const m = wave.mean;
+  for (let y = 0; y < rows; y++) {
+    const back = (wave.y - y * CELL) / 140, f = Math.min(0.25, 0.03 + back * 0.12);
+    for (let x = 0, i = y * W; x < W; x++, i++) {
+      h[i] += (m - h[i]) * f; firm[i] *= 0.8; act[i] = 0;
+      if (wet[i] < 1) wet[i] = Math.min(1, wet[i] + 0.12);
+    }
+  }
+  wetActive = true;
+  if (t > dur + 600) {
+    for (let i = 0; i < N; i++) h[i] = m + (h[i] - m) * 0.0;
+    for (let i = 0; i < N; i++) firm[i] = 0;
+    wave = null;
+  }
+}
+function drawWave() {
+  if (!wave) return;
+  const y = wave.y;
+  const gr = ctx.createLinearGradient(0, y - 170, 0, y + 18);
+  gr.addColorStop(0, 'rgba(70,170,220,0)');
+  gr.addColorStop(0.7, 'rgba(80,180,225,0.45)');
+  gr.addColorStop(0.9, 'rgba(230,248,255,0.85)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gr;
+  ctx.beginPath();
+  ctx.moveTo(0, y - 170);
+  ctx.lineTo(cssW, y - 170);
+  for (let x = cssW; x >= 0; x -= 12) ctx.lineTo(x, y + 18 + Math.sin(x * 0.05 + y * 0.03) * 6);
+  ctx.closePath(); ctx.fill();
+}
+
+// ---------- rendering ----------
+let grainPat = null;
+function makeGrain() {
+  const s = 160, g = document.createElement('canvas'); g.width = g.height = s;
+  const gc = g.getContext('2d'), id = gc.createImageData(s, s), d = id.data;
+  for (let i = 0; i < s * s; i++) {
+    let v = 128 + (Math.random() - 0.5) * 70;
+    const r = Math.random();
+    if (r < 0.015) v = 250; else if (r < 0.04) v = 40;
+    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v; d[i * 4 + 3] = 255;
+  }
+  gc.putImageData(id, 0, 0);
+  grainPat = ctx.createPattern(g, 'repeat');
+  try { grainPat.setTransform(new DOMMatrix().scale(1 / DPR)); } catch (e) {}
+}
+
+function render(now) {
+  const Lx = -0.42, Ly = -0.56, Lz = 0.71;
+  const sandR = 228, sandG = 197, sandB = 148, flR = 64, flG = 158, flB = 214;
+  for (let y = 0; y < H; y++) {
+    const up = y > 0 ? -W : 0, dn = y < H - 1 ? W : 0;
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x, lf = x > 0 ? -1 : 0, rt = x < W - 1 ? 1 : 0;
+      const gx = (h[i + rt] - h[i + lf]) * 0.36, gy = (h[i + dn] - h[i + up]) * 0.36;
+      let s = (-gx * Lx - gy * Ly + Lz) / Math.sqrt(gx * gx + gy * gy + 1);
+      if (s < 0) s = 0;
+      const hh = h[i], w = wet[i];
+      let lum = (0.3 + 0.92 * s) * c[i] * (1 - 0.22 * w);
+      if (hh < 5) lum *= 0.84 + 0.032 * hh; // deeper sand is damper and darker
+      let r = sandR * lum, g = sandG * lum * (1 - 0.03 * w), b = sandB * lum * (1 + 0.06 * w);
+      if (hh < 1.2) { // the blue tray floor peeks through
+        const t = hh / 1.2, fl = 0.75 + 0.3 * s;
+        r = flR * fl + (r - flR * fl) * t; g = flG * fl + (g - flG * fl) * t; b = flB * fl + (b - flB * fl) * t;
+      }
+      img32[i] = 0xff000000 | ((b > 255 ? 255 : b) << 16) | ((g > 255 ? 255 : g) << 8) | (r > 255 ? 255 : r);
+    }
+  }
+  sctx.putImageData(img, 0, 0);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(small, 0, 0, W * CELL, H * CELL);
+  if (grainPat) {
+    ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = 0.32;
+    ctx.fillStyle = grainPat; ctx.fillRect(0, 0, cssW, cssH);
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  }
+  // airborne grains + their shadows
+  if (parts.length) {
+    ctx.fillStyle = 'rgba(70,45,10,0.14)';
+    for (const p of parts) { const z = p.z - h[(p.y | 0) * W + (p.x | 0)]; if (z > 0.5) ctx.fillRect(p.x * CELL + z * 0.9, p.y * CELL + z * 1.2, 2, 2); }
+    for (const p of parts) {
+      const v = p.c * 240 | 0, sz = 1.8 + Math.max(0, p.z) * 0.03;
+      ctx.fillStyle = `rgb(${v},${v * 0.86 | 0},${v * 0.64 | 0})`;
+      ctx.fillRect(p.x * CELL - sz / 2, p.y * CELL - sz / 2, sz, sz);
+    }
+  }
+  drawWave();
+  drawAnims(now);
+}
+
+// ---------- sound ----------
+const sound = (() => {
+  let a = null, master = null, scrape, pour, flow, noise, muted = false;
+  function chain(type, f, q) {
+    const s = a.createBufferSource(); s.buffer = noise; s.loop = true;
+    const fl = a.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    const g = a.createGain(); g.gain.value = 0;
+    s.connect(fl); fl.connect(g); g.connect(master); s.start(0, Math.random());
+    return g;
+  }
+  return {
+    init() {
+      if (a) { if (a.state === 'suspended') a.resume(); return; }
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext; a = new AC();
+        noise = a.createBuffer(1, a.sampleRate * 2, a.sampleRate);
+        const d = noise.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (Math.random() < 0.3 ? 1 : 0.35); // crackly grain noise
+        master = a.createGain(); master.gain.value = 0.9; master.connect(a.destination);
+        scrape = chain('bandpass', 1500, 0.8); pour = chain('bandpass', 3400, 1.1); flow = chain('lowpass', 1100, 0.6);
+      } catch (e) { a = null; }
+    },
+    levels(sc, po, fl) {
+      if (!a) return; const t = a.currentTime;
+      scrape.gain.setTargetAtTime(sc, t, 0.05); pour.gain.setTargetAtTime(po, t, 0.08); flow.gain.setTargetAtTime(fl, t, 0.12);
+    },
+    stamp(idx) {
+      if (!a || muted) return; const t = a.currentTime;
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(55, t + 0.18);
+      g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.3);
+      const notes = [523.25, 587.33, 659.25, 783.99, 880, 1046.5];
+      const base = notes[idx % notes.length];
+      [0, 0.09].forEach((dt, k) => {
+        const o2 = a.createOscillator(), g2 = a.createGain();
+        o2.type = 'triangle'; o2.frequency.value = base * (k ? 1.5 : 1);
+        g2.gain.setValueAtTime(0.0001, t + 0.03 + dt); g2.gain.exponentialRampToValueAtTime(0.16, t + 0.05 + dt);
+        g2.gain.exponentialRampToValueAtTime(0.001, t + 0.5 + dt);
+        o2.connect(g2); g2.connect(master); o2.start(t + 0.03 + dt); o2.stop(t + 0.6 + dt);
+      });
+    },
+    wave() {
+      if (!a || muted) return; const t = a.currentTime;
+      const s = a.createBufferSource(); s.buffer = noise;
+      const f = a.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 0.7;
+      f.frequency.setValueAtTime(300, t); f.frequency.linearRampToValueAtTime(1800, t + 0.7); f.frequency.linearRampToValueAtTime(400, t + 1.9);
+      const g = a.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.5, t + 0.5); g.gain.linearRampToValueAtTime(0.0001, t + 2);
+      s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + 2);
+    },
+    toggle() { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.9; return muted; },
+    suspend() { if (a && a.state === 'running') a.suspend(); },
+    resume() { if (a && a.state === 'suspended') a.resume(); },
+  };
+})();
+
+// ---------- touch input ----------
+let tool = 'hand', stampType = 'turtle';
+const pointers = new Map();
+let fingerTravel = 0;
+
+function localXY(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  const [x, y] = localXY(e);
+  pointers.set(e.pointerId, { x, y, t: performance.now(), tool });
+  if (tool === 'stamp') startStamp(stampType, x, y);
+  else if (tool === 'hand') plow(x / CELL, y / CELL, 0, 0, 0);
+});
+
+cv.addEventListener('pointermove', e => {
+  const p = pointers.get(e.pointerId); if (!p) return;
+  e.preventDefault();
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  for (const ev of (evs.length ? evs : [e])) {
+    const [x, y] = localXY(ev), now = performance.now();
+    if (p.tool === 'hand') {
+      const dx = x - p.x, dy = y - p.y, dist = Math.hypot(dx, dy);
+      if (dist < 0.5) continue;
+      const speed = dist / Math.max(4, now - p.t);
+      const step = FINGER_R * 0.4, n = Math.ceil(dist / step);
+      for (let k = 1; k <= n; k++) {
+        const u = k / n;
+        plow((p.x + dx * u) / CELL, (p.y + dy * u) / CELL, dx / dist, dy / dist, speed);
+      }
+      fingerTravel += dist;
+    }
+    p.x = x; p.y = y; p.t = now;
+  }
+});
+
+function endPointer(e) { pointers.delete(e.pointerId); }
+cv.addEventListener('pointerup', endPointer);
+cv.addEventListener('pointercancel', endPointer);
+cv.addEventListener('lostpointercapture', endPointer);
+
+function pourStep() {
+  let n = 0;
+  for (const p of pointers.values()) {
+    if (p.tool !== 'pour') continue; n++;
+    const gx = p.x / CELL, gy = p.y / CELL, spread = 7 / CELL;
+    for (let k = 0; k < 36; k++) {
+      const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * spread;
+      const x = Math.max(0, Math.min(W - 1, gx + Math.cos(a) * r)), y = Math.max(0, Math.min(H - 1, gy + Math.sin(a) * r));
+      spawnGrain(x, y, h[(y | 0) * W + (x | 0)] + 22 + Math.random() * 10, (Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.08, -0.6, 0.3, grainTint());
+    }
+  }
+  return n;
+}
+
+// stop the page itself from scrolling / zooming / long-press menus
+['touchstart', 'touchmove', 'gesturestart', 'gesturechange'].forEach(t =>
+  document.addEventListener(t, e => { if (e.target.closest('#start')) return; e.preventDefault(); }, { passive: false }));
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+// ---------- toolbar ----------
+const toolsRow = document.getElementById('tools'), stampsRow = document.getElementById('stamps');
+const buttons = [];
+
+function mkBtn(row, content, label, onPress, cls) {
+  const b = document.createElement('button');
+  b.className = 'btn' + (cls ? ' ' + cls : ''); b.setAttribute('aria-label', label);
+  if (typeof content === 'string') b.textContent = content; else b.appendChild(content);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); sound.init(); onPress(b); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); });
+  row.appendChild(b); buttons.push(b); return b;
+}
+function select(b) { buttons.forEach(x => x.classList.toggle('sel', x === b)); }
+
+const handBtn = mkBtn(toolsRow, '✋', 'Dig with your finger', b => { tool = 'hand'; select(b); });
+mkBtn(toolsRow, '🪣', 'Pour sand', b => { tool = 'pour'; select(b); });
+mkBtn(toolsRow, '🌊', 'Smooth the sand', b => { startWave(); }, 'action');
+mkBtn(toolsRow, '🔊', 'Sound on or off', b => { b.textContent = sound.toggle() ? '🔇' : '🔊'; }, 'action small');
+
+for (const t of STAMPS) {
+  const ic = document.createElement('canvas'); ic.width = ic.height = 128;
+  const g = ic.getContext('2d'); g.translate(64, 64); g.scale(54, 54); drawShape(g, t, PAL[t]);
+  mkBtn(stampsRow, ic, t + ' stamp', b => { tool = 'stamp'; stampType = t; select(b); });
+}
+select(handBtn);
+
+// ---------- start screen ----------
+const startEl = document.getElementById('start');
+document.getElementById('play').addEventListener('click', async () => {
+  sound.init();
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function')
+      await DeviceOrientationEvent.requestPermission();
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function')
+      await DeviceMotionEvent.requestPermission();
+  } catch (e) {}
+  needCal = true;
+  try {
+    const de = document.documentElement;
+    if (de.requestFullscreen && !navigator.standalone) await de.requestFullscreen({ navigationUI: 'hide' });
+  } catch (e) {}
+  startEl.classList.add('hide');
+  setTimeout(() => { try { screen.orientation.lock('portrait'); } catch (e) {} }, 300);
+});
+
+document.addEventListener('visibilitychange', () => { document.hidden ? sound.suspend() : sound.resume(); });
+window.addEventListener('resize', () => setTimeout(resize, 60));
+
+// ---------- main loop ----------
+let scrapeLvl = 0, physMs = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (!N) { resize(); if (!N) return; }
+  updateTilt();
+  if (agit > 0.01) { agit *= 0.95; for (let i = 0; i < N; i++) firm[i] *= 1 - 0.04 * agit; } else agit = 0;
+  if (wetActive && !wave) {
+    let any = false;
+    for (let i = 0; i < N; i++) if (wet[i] > 0) { wet[i] -= 0.0007; if (wet[i] < 0) wet[i] = 0; else any = true; }
+    wetActive = any;
+  }
+  const pouring = pourStep();
+  stepWave();
+  flowThisFrame = 0;
+  const t0 = performance.now();
+  for (let k = 0; k < P.iters; k++) relax(tiltX, tiltY, agit);
+  // slower phones: drop to two physics passes per frame if the sim is hogging the frame
+  physMs = physMs * 0.97 + (performance.now() - t0) * 0.03;
+  if (physMs > 11 && P.iters > 2) P.iters = 2;
+  updateParticles();
+  render(now);
+  scrapeLvl = scrapeLvl * 0.6 + Math.min(0.55, fingerTravel / 60) * 0.4; fingerTravel = 0;
+  sound.levels(scrapeLvl, pouring ? 0.22 : 0, Math.min(0.4, flowThisFrame / (N * 0.004)));
+}
+
+resize();
+requestAnimationFrame(frame);
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
