@@ -42,13 +42,13 @@ Sand is conserved: anything dug or stamped out is pushed into ridges and rims, a
 
 The lighting is computed from the surface slope, with light coming from a low sun at the top-left. Piles and ridges also cast soft shadows. That shading is what makes grooves, piles and imprints look 3-D.
 
-Real sand needs about 35° of tilt to slide. The tilt-sensitivity setting exaggerates tilt a little (Low), more (Medium) or about 2× (High) so small hands can get the sand moving; water always feels the phone's real tilt.
+Real sand needs about 35° of tilt to slide. The tilt-sensitivity setting makes the tray steadier than real sand (Low and Medium) or about the same (High), so a toddler's wobbly grip doesn't send everything sliding; water always feels the phone's real tilt.
 
 ## Grown-up notes
 
 - **Settings:** press and hold the ⚙️ in the top corner for about a second; a quick tap does nothing, so little fingers won't open it. Settings are remembered on this phone:
   - **Tilt & shake:** turns the motion sensors off, so the sand stays put however the phone is held.
-  - **Tilt sensitivity:** *Low* (the default; sand starts to slide at about 30° of tilt and only a firm shake counts), *Medium* (about 22°) or *High* (about 17°).
+  - **Tilt sensitivity:** *Low* (the default; flat sand starts to slide at about 50° of tilt and only a hard shake counts), *Medium* (about 42°) or *High* (about 34°, close to real sand). Piles and steep walls give way a little sooner.
   - **Buried dinosaurs:** *Off* (no toys), *Shallow* (just under the surface, easy finds), *Medium*, *Deep* (thick sand, faint lumps) or *Hidden* (buried under dead-flat sand with no lumps at all, so finding them is pure exploring). Changing it washes the tray smooth and buries a new set.
   - **Water in low spots (for moats):** *Off*, *Low* or *High*. Like digging near the sea: any hole, trench or moat dug below the water table slowly fills with seep-in water, and drains back if filled in. *Low* needs a deep dig; *High* fills even shallow scrapes and dune hollows. The water stays level with real gravity, so tilting sloshes moats toward the low side.
   - **Sound:** on or off.

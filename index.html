@@ -167,7 +167,7 @@
         <div class="seg" data-key="motion"><button data-v="on">On</button><button data-v="off">Off</button></div></div>
       <div class="opt"><span>Tilt sensitivity</span>
         <div class="seg" data-key="sens"><button data-v="low">Low</button><button data-v="medium">Medium</button><button data-v="high">High</button></div></div>
-      <p class="note">How far the phone must tip before sand slides: about 30° on Low, 22° on Medium, 17° on High.</p>
+      <p class="note">How far the phone must tip before flat sand slides: about 50° on Low, 42° on Medium, 34° on High (piles and steep walls go a little sooner).</p>
       <div class="opt"><span>Buried dinosaurs</span>
         <div class="seg small" data-key="bury"><button data-v="off">Off</button><button data-v="shallow">Shallow</button><button data-v="medium">Medium</button><button data-v="deep">Deep</button><button data-v="hidden">Hidden</button></div></div>
       <p class="note"><b>Hidden</b> buries them deep under flat sand with no lumps to give them away. Changing this washes the sand smooth and buries a new set.</p>
@@ -207,7 +207,8 @@ const BURY = {
   hidden: { bed: 26, cover: 8 }, // toys are 14px tall: 26px of sand leaves the surface dead flat over them
 };
 // how strongly tilt drives the sand, and how hard a shake must be
-const SENS = { low: { gain: 1.25, shake: 18 }, medium: { gain: 1.8, shake: 15 }, high: { gain: 2.4, shake: 13 } };
+// sand starts to slide when gain x tan(tilt) beats the angle of repose (0.72): ~50 / 42 / 34 degrees
+const SENS = { low: { gain: 0.6, shake: 22 }, medium: { gain: 0.85, shake: 18 }, high: { gain: 1.1, shake: 15 } };
 const sens = () => SENS[settings.sens] || SENS.low;
 const bury = () => BURY[settings.bury] || BURY.medium;
 
@@ -218,7 +219,7 @@ const P = {
   COH: 4.0,       // extra slope pressed/compacted sand can hold
   WETC: 1.4,      // extra slope wet sand can hold
   k: 0.1,         // flow rate
-  tiltGain: 1.25, // set from the tilt-sensitivity setting
+  tiltGain: 0.6, // set from the tilt-sensitivity setting
   iters: 3,       // physics passes per frame
   G: 0.13,        // gravity pull on moving sand (cells / pass²)
   mobile: 1.8,    // thickness of the surface layer that can flow
