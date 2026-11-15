@@ -1,8 +1,9 @@
 // Offline cache so the sandbox works without signal once it has been opened.
-const CACHE = 'sandbox-v14';
+const CACHE = 'sandbox-v15';
 const FILES = [
   './',
   'index.html',
+  'help.html',
   'manifest.webmanifest',
   'icon.svg',
   'icon-180.png',
@@ -30,6 +31,28 @@ const FILES = [
   'js/ui.js',
   'js/water.js',
   'js/wave.js',
+  'help/bucket.png',
+  'help/castle.png',
+  'help/dye.png',
+  'help/fan.png',
+  'help/footprints.png',
+  'help/hand.png',
+  'help/hose.png',
+  'help/rain.png',
+  'help/shovel.png',
+  'help/stamp.png',
+  'help/toy-ammonite.png',
+  'help/toy-bone.png',
+  'help/toy-chest.png',
+  'help/toy-egg.png',
+  'help/toy-gem.png',
+  'help/toy-longneck.png',
+  'help/toy-ptero.png',
+  'help/toy-stego.png',
+  'help/toy-trex.png',
+  'help/toy-trike.png',
+  'help/truck.png',
+  'help/wave.png',
 ];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {

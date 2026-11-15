@@ -216,6 +216,18 @@ panel.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', a
     else { tiltX = tiltY = 0; agit = 0; }
   }
 }));
+// ---------- the guide ----------
+const helpWrap = document.getElementById('helpwrap'), helpFrame = document.getElementById('helpframe');
+function openHelp() {
+  if (!helpFrame.getAttribute('src')) helpFrame.src = 'help.html';
+  helpWrap.classList.remove('hide');
+  document.documentElement.classList.add('help-open'); // let the guide scroll on iPhones
+}
+function closeHelp() { helpWrap.classList.add('hide'); document.documentElement.classList.remove('help-open'); }
+window.addEventListener('message', e => { if (e.data === 'close-help') closeHelp(); });
+document.getElementById('helpBtn').addEventListener('click', openHelp);
+document.getElementById('startHelp').addEventListener('click', openHelp);
+
 function closeSettings() {
   panel.classList.add('hide');
   document.documentElement.classList.remove('settings-open');

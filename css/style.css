@@ -113,7 +113,7 @@ body.sky { background: linear-gradient(180deg, #7fd3f2 0%, #5cc4ea 55%, #3fb0dc 
   padding: max(10px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
 }
 #settings.hide { display: none; }
-html.settings-open, html.settings-open body { touch-action: auto; } /* let the settings panel scroll on iPhones */
+html.settings-open, html.settings-open body, html.help-open, html.help-open body { touch-action: auto; } /* let the settings panel scroll on iPhones */
 #settings .panel {
   position: relative; width: min(360px, 100%); max-height: 100%;
   overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
@@ -162,3 +162,16 @@ html.settings-open, html.settings-open body { touch-action: auto; } /* let the s
 @keyframes bob { 50% { transform: translateY(-12px) scale(1.04); } }
 #start .hint { font-size: 26px; font-weight: 800; }
 #start .small { font-size: 14px; opacity: .75; max-width: 300px; line-height: 1.4; }
+
+/* the guide opens over the sandbox, so nothing that's been built is lost */
+#helpBtn {
+  display: block; width: 100%; margin: 0 0 14px; padding: 11px; border-radius: 12px; border: 2px solid #9fd3ec;
+  background: #e8f6fd; color: #1f5f80; font: inherit; font-weight: 800; font-size: 15px;
+}
+#startHelp {
+  border: none; border-radius: 999px; padding: 9px 18px; background: rgba(255,255,255,.75); color: #7a4a12;
+  font: inherit; font-weight: 800; font-size: 15px;
+}
+#helpwrap { position: fixed; inset: 0; z-index: 30; background: #f7efe1; }
+#helpwrap.hide { display: none; }
+#helpframe { width: 100%; height: 100%; border: 0; display: block; }

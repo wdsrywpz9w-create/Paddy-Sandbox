@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#3a342f">
+<title>Sandbox Guide</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #f7efe1; --card: #fffaf0; --ink: #3f2a12; --muted: #7a6450; --line: #e7d6b8;
+    --accent: #3aa7d9; --accent-ink: #ffffff; --chip: #ffe36b; --chip-ink: #4a3015; --code: #f0e2c8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #26211d; --card: #312a24; --ink: #f3e7d6; --muted: #c2ad95; --line: #4a3f35;
+      --accent: #5cc0ec; --accent-ink: #10202a; --chip: #b89422; --chip-ink: #1f1608; --code: #40362d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #26211d; --card: #312a24; --ink: #f3e7d6; --muted: #c2ad95; --line: #4a3f35;
+    --accent: #5cc0ec; --accent-ink: #10202a; --chip: #b89422; --chip-ink: #1f1608; --code: #40362d;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  header {
+    position: sticky; top: 0; z-index: 2; background: var(--bg);
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 20px; margin: 0; flex: 1; }
+  #back {
+    border: none; border-radius: 999px; padding: 9px 16px; background: var(--accent); color: var(--accent-ink);
+    font: inherit; font-weight: 800; font-size: 15px; text-decoration: none; cursor: pointer;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 8px 16px 48px; }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
+  nav.toc a {
+    padding: 6px 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--line);
+    color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 700;
+  }
+  h2 { font-size: 22px; margin: 34px 0 10px; scroll-margin-top: 70px; }
+  h3 { font-size: 17px; margin: 0 0 4px; }
+  p { margin: 8px 0; }
+  .lead { font-size: 17px; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin: 10px 0; }
+  .tool { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: start; }
+  .tool img, .toys img { width: 56px; height: 56px; object-fit: contain; border-radius: 50%; background: #fffdf6; box-shadow: 0 3px 0 rgba(0,40,70,.15); }
+  .tool .icons { display: flex; flex-direction: column; gap: 6px; }
+  .group { font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  ul { padding-left: 20px; margin: 6px 0; } li { margin: 3px 0; }
+  .toys { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  .toys figure { margin: 0; text-align: center; width: 70px; font-size: 12px; color: var(--muted); }
+  .toys img { width: 52px; height: 52px; border-radius: 12px; }
+  .setting { border-top: 1px solid var(--line); padding: 10px 0; }
+  .setting:first-child { border-top: none; padding-top: 0; }
+  .chip { display: inline-block; padding: 1px 9px; border-radius: 999px; background: var(--chip); color: var(--chip-ink); font-weight: 800; font-size: 14px; }
+  .opt { display: inline-block; padding: 1px 8px; border-radius: 8px; background: var(--code); font-weight: 700; font-size: 14px; }
+  kbd { background: var(--code); border-radius: 6px; padding: 1px 6px; font: 14px ui-monospace, Menlo, monospace; }
+  .tip { border-left: 4px solid var(--accent); }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; margin: 8px 0; }
+  summary { font-weight: 800; cursor: pointer; }
+  footer { color: var(--muted); font-size: 13px; text-align: center; margin-top: 40px; }
+  @media (max-width: 380px) { .tool { grid-template-columns: 44px 1fr; } .tool img { width: 44px; height: 44px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>📖 Sandbox guide</h1>
+  <a id="back" href="index.html">Back to the sand</a>
+</header>
+<main>
+  <p class="lead">A sand tray for little hands. Every grain slides, piles and slumps like real sand, the phone's tilt moves it, and there are dinosaurs buried in it. This guide is for grown-ups; the sandbox itself needs no reading.</p>
+
+  <nav class="toc" aria-label="Contents">
+    <a href="#start">Getting started</a><a href="#toolbar">The toolbar</a><a href="#tools">Tools</a><a href="#dig">Dinosaur dig</a>
+    <a href="#tilt">Tilt &amp; shake</a><a href="#settings">Settings</a><a href="#tips">Tips</a><a href="#trouble">Troubleshooting</a><a href="#privacy">Privacy</a>
+  </nav>
+
+  <h2 id="start">Getting started</h2>
+  <div class="card">
+    <ol>
+      <li><b>Open it on the phone</b> and tap <b>Add to Home Screen</b> (Safari: Share button; Android: browser menu). It then opens full-screen with no browser bars, and works offline.</li>
+      <li><b>Hold the phone the way your child will</b>, then tap the big 🏖️ button. That position counts as "flat" for tilting.</li>
+      <li>On iPhone, <b>allow motion access</b> when asked so tilting works.</li>
+      <li>Hand it over. Everything is touch and pictures.</li>
+    </ol>
+  </div>
+
+  <h2 id="toolbar">The toolbar</h2>
+  <p>The row of round buttons along the bottom picks what a finger does on the sand. The chosen tool is shown in yellow.</p>
+  <div class="card tip">
+    <p>Some buttons hold a <b>group</b> of tools. Tapping one picks the tool it shows and pops its group open above the bar; tap another picture to switch. The button then shows that tool until another is chosen. The groups are <b>Sand tools</b> (bucket, castle mould, shovel), <b>Water</b> (hose, rain), <b>Colours</b> and <b>Stamps</b> (including footprints).</p>
+  </div>
+
+  <h2 id="tools">Tools</h2>
+
+  <div class="card tool"><img src="help/hand.png" alt="">
+    <div><h3>Finger</h3><p>Drag through the sand to dig a groove. Sand is pushed ahead of the finger into a ridge, the sides slump like real sand, and a fast flick sends grains flying. Keep scrubbing to uncover buried toys.</p></div></div>
+
+  <div class="card tool"><img src="help/bucket.png" alt="">
+    <div><span class="group">Sand tools</span><h3>Bucket</h3><p>Hold a finger down to pour a stream of sand. It piles up into a cone and avalanches down its sides. (The only tool that adds new sand.)</p></div></div>
+
+  <div class="card tool"><img src="help/castle.png" alt="">
+    <div><span class="group">Sand tools</span><h3>Castle mould</h3><p>Touch the sand and an upside-down bucket appears under the finger. Move it where you like and <b>let go</b>: it presses down and lifts off a round tower with battlements. Towers are packed damp sand, so they keep their walls until something knocks them, sand slides over them, or they dry out and crumble a little.</p></div></div>
+
+  <div class="card tool"><img src="help/shovel.png" alt="">
+    <div><span class="group">Sand tools</span><h3>Shovel</h3><p>Press to scoop up sand. <b>Keep holding still</b> and the scoop digs wider and deeper for about 1½ seconds: a dashed ring shows its edge and a yellow ring fills up, turning green with a pop at full size. Then drag the loaded shovel anywhere and let go to tip the sand out into a pile. No sand is lost or created.</p></div></div>
+
+  <div class="card tool"><img src="help/hose.png" alt="">
+    <div><span class="group">Water</span><h3>Hose</h3><p>Hold a finger down to spray water just past the fingertip. The first splashes blast a little crater; once water collects it fills up, so <b>point it at a hole or moat to fill it</b>. Water runs downhill, carves channels, sloshes when the phone tilts, and slowly soaks in, leaving dark damp sand.</p></div></div>
+
+  <div class="card tool"><img src="help/rain.png" alt="">
+    <div><span class="group">Water</span><h3>Rain cloud</h3><p>Hold a finger down and a little cloud rains on the sand around it. Raindrops dimple and darken the sand, and the water gathers in hollows.</p></div></div>
+
+  <div class="card tool"><img src="help/dye.png" alt="">
+    <div><span class="group">Colours</span><h3>Coloured dye</h3><p>Pick red, orange, yellow, green, blue, purple, pink or <b>rainbow</b> (which changes colour as the finger moves), then rub the sand to stain it. Coloured sand keeps its colour wherever it goes: when it slides, gets dug, shovelled or stamped. The wave washes colours out.</p></div></div>
+
+  <div class="card tool"><img src="help/stamp.png" alt="">
+    <div><span class="group">Stamps</span><h3>Stamps</h3><p>Turtle, starfish, shell, fish, crab and heart. <b>Drag one straight off its button</b> onto the sand, or pick one and touch the sand: the stamp lifts and follows the finger, then presses in where the finger lets go. A quick tap stamps on the spot. Imprints are packed firm, so they stay crisp until loose sand covers them.</p></div></div>
+
+  <div class="card tool"><img src="help/footprints.png" alt="">
+    <div><span class="group">Stamps</span><h3>Dinosaur footprints</h3><p>Drag a finger and a dinosaur walks along it, leaving left-right three-toed prints. A low sun (see Settings) makes them stand out best.</p></div></div>
+
+  <div class="card tool"><img src="help/truck.png" alt="">
+    <div><h3>Toy truck</h3><p>Touch the sand and the truck drives towards the finger, steering as it goes. Its blade bulldozes a ridge of sand ahead of it and the back wheels leave tread tracks. It stays where it stops.</p></div></div>
+
+  <div class="card tool"><img src="help/fan.png" alt="">
+    <div><h3>Desk fan</h3>
+      <p>Puts a desk fan on the sand. <b>Blow into the phone's microphone</b> and the fan spins up and blows sand away from where it points: loose sand slides and hops downwind, piles into drifts and forms little ripples. The wind comes in gusts. Wet or packed sand resists, so a hosed-down castle survives.</p>
+      <ul>
+        <li>With the fan button chosen, <b>drag the fan</b> to move it, or <b>touch anywhere else</b> to point it that way.</li>
+        <li><b>Drag it off the edge</b> of the sandbox to put it away (this also switches the microphone off).</li>
+        <li>The phone asks for microphone permission the first time. If there's no microphone, pressing and holding the fan runs it instead.</li>
+      </ul></div></div>
+
+  <div class="card tool"><img src="help/wave.png" alt="">
+    <div><h3>Wave</h3><p>A wave washes across the tray and leaves it smooth, flat and wet. It also buries a new set of toys, washes out dye, and makes the phone's current position the new "flat" for tilting.</p></div></div>
+
+  <h2 id="dig">Dinosaur dig</h2>
+  <p>Each round, four dinosaurs and two treasures are buried in the sand. Dig with a finger, scoop with the shovel, blast with the hose, drive the truck over them, or tilt the sand off them.</p>
+  <div class="toys">
+    <figure><img src="help/toy-trex.png" alt=""><figcaption>T-rex</figcaption></figure>
+    <figure><img src="help/toy-trike.png" alt=""><figcaption>Triceratops</figcaption></figure>
+    <figure><img src="help/toy-stego.png" alt=""><figcaption>Stegosaurus</figcaption></figure>
+    <figure><img src="help/toy-longneck.png" alt=""><figcaption>Long-neck</figcaption></figure>
+    <figure><img src="help/toy-ptero.png" alt=""><figcaption>Pterodactyl</figcaption></figure>
+    <figure><img src="help/toy-egg.png" alt=""><figcaption>Dino egg</figcaption></figure>
+    <figure><img src="help/toy-bone.png" alt=""><figcaption>Fossil bone</figcaption></figure>
+    <figure><img src="help/toy-chest.png" alt=""><figcaption>Treasure chest</figcaption></figure>
+    <figure><img src="help/toy-gem.png" alt=""><figcaption>Gem</figcaption></figure>
+    <figure><img src="help/toy-ammonite.png" alt=""><figcaption>Ammonite</figcaption></figure>
+  </div>
+  <div class="card">
+    <ul>
+      <li>When most of a toy is uncovered, dinosaurs <b>roar</b> (treasures chime), hop about and sparkle.</li>
+      <li>The <b>shelf</b> in the top-left corner shows this round's toys as grey shadows; each fills in with colour when it's found.</li>
+      <li>Find them all for <b>confetti and a fanfare</b>; the wave button then wiggles to offer a new dig.</li>
+      <li>Change how deep they're buried, or turn them off, in Settings.</li>
+    </ul>
+  </div>
+
+  <h2 id="tilt">Tilt &amp; shake</h2>
+  <div class="card">
+    <p><b>Tilt</b> the phone far enough and sand slides downhill, piles against the low wall and shows the blue tray floor at the high end. Water sloshes too, even at small tilts. <b>Shake</b> the phone hard and the sand loosens and settles flatter.</p>
+    <p>How far it must tip is set by <span class="opt">Tilt sensitivity</span>. The phone's position when you tap 🏖️ or 🌊 counts as flat.</p>
+  </div>
+
+  <h2 id="settings">Grown-up settings</h2>
+  <p><b>Press and hold the ⚙️</b> in the top-right corner for about a second (a yellow ring fills up). A quick tap does nothing, so little fingers won't open it. Settings are remembered on the phone. Close with <b>Done</b>, the ✕, or by tapping outside the panel.</p>
+  <div class="card">
+    <div class="setting"><h3>Tilt &amp; shake</h3><p><span class="opt">On</span> <span class="opt">Off</span>. Off keeps the sand still however the phone is held.</p></div>
+    <div class="setting"><h3>Tilt sensitivity</h3><p><span class="opt">Low</span> (default; flat sand slides at about 50°), <span class="opt">Medium</span> (about 42°), <span class="opt">High</span> (about 34°, like real sand). Piles and steep walls give way a little sooner.</p></div>
+    <div class="setting"><h3>Buried dinosaurs</h3><p><span class="opt">Off</span> no toys · <span class="opt">Shallow</span> easy finds · <span class="opt">Medium</span> · <span class="opt">Deep</span> thick sand, faint lumps · <span class="opt">Hidden</span> flat sand with no lumps at all. Changing it washes the tray and buries a new set.</p></div>
+    <div class="setting"><h3>Water in low spots (for moats)</h3><p><span class="opt">Off</span> <span class="opt">Low</span> <span class="opt">High</span>. Like digging near the sea: holes, trenches and moats dug deep enough fill with seep-in water and drain back if filled in. Low needs a deep dig; High fills even shallow ones.</p></div>
+    <div class="setting"><h3>Sun</h3><p><span class="opt">Low</span> long shadows that make prints and stamps stand out · <span class="opt">Midday</span> · <span class="opt">High</span> short shadows.</p></div>
+    <div class="setting"><h3>Background</h3><p><span class="opt">Rocky</span> (default) or <span class="opt">Sky blue</span> around the sandbox.</p></div>
+    <div class="setting"><h3>Sound</h3><p><span class="opt">On</span> <span class="opt">Off</span>.</p></div>
+  </div>
+
+  <h2 id="tips">Tips for little ones</h2>
+  <div class="card tip">
+    <ul>
+      <li><b>Keep them in the sandbox:</b> on iPhone turn on <b>Guided Access</b> (Settings → Accessibility → Guided Access), then triple-click the side button while the sandbox is open. On Android use <b>App pinning</b>.</li>
+      <li><b>Moat game:</b> turn on <span class="opt">Water in low spots</span>, make a tower with the castle mould, and dig a ring around it.</li>
+      <li><b>Treasure hunt:</b> set dinosaurs to <span class="opt">Hidden</span> for a real search; <span class="opt">Shallow</span> for the youngest.</li>
+      <li><b>Wind tunnel:</b> hose a castle (wet sand resists wind), then blow the fan at it and watch the dry sand drift away.</li>
+    </ul>
+  </div>
+
+  <h2 id="trouble">Troubleshooting</h2>
+  <details><summary>Tilting doesn't move the sand</summary>
+    <ul><li>Check <span class="opt">Tilt &amp; shake</span> is On, and try <span class="opt">Tilt sensitivity: High</span>; on Low the phone must tip about halfway to upright.</li>
+    <li>On iPhone, motion access must be allowed: close the tab, reopen the sandbox and tap 🏖️ again to get the question.</li>
+    <li>Tilt only works when the page is opened over <kbd>https://</kbd>.</li></ul></details>
+  <details><summary>The fan doesn't spin when blowing</summary>
+    <ul><li>Allow microphone access when asked. If it was refused, allow it again in the browser's site settings, or press and hold the fan to run it.</li>
+    <li>Blow straight at the bottom edge of the phone, where the microphone is.</li></ul></details>
+  <details><summary>Sound is quiet while the fan is out</summary>
+    <p>Some iPhones lower the volume while the microphone is on. Drag the fan off the sandbox to switch the microphone off.</p></details>
+  <details><summary>A change doesn't show up</summary>
+    <p>The sandbox keeps a copy of itself for offline use. Close it and open it again (or reload twice) to pick up a new version.</p></details>
+  <details><summary>It feels slow</summary>
+    <p>The sandbox only works where sand is moving, and on slower phones it automatically does fewer physics steps per frame. Closing other apps helps; turning off <span class="opt">Water in low spots</span> and putting the fan away saves a little more.</p></details>
+
+  <h2 id="privacy">Privacy</h2>
+  <div class="card">
+    <p>Everything runs on the phone. Nothing is sent anywhere, and there are no ads or tracking. The microphone is only on while a fan is on the sand, and is only used to measure how hard someone is blowing; nothing is recorded. Settings are saved on the phone only.</p>
+  </div>
+
+  <footer>Paddy's Sandbox · for grown-ups to read, for little ones to play</footer>
+</main>
+<script>
+  // Opened inside the sandbox: the back button closes this guide instead of reloading the sand.
+  const inApp = window.parent !== window;
+  document.getElementById('back').addEventListener('click', e => {
+    if (inApp) { e.preventDefault(); window.parent.postMessage('close-help', '*'); }
+  });
+  if (inApp) document.getElementById('back').textContent = 'Close';
+</script>
+</body>
+</html>

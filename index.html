@@ -24,13 +24,16 @@
     <button id="play" aria-label="Play">🏖️</button>
     <div class="hint">Tap to play!</div>
     <div class="small">Grown-ups: hold the phone how your little one will hold it, then tap. Tilt to pour the sand, tap 🌊 to smooth it and re-level. Press and hold ⚙️ (top corner) for settings.</div>
+    <button id="startHelp">📖 Read the guide</button>
   </div>
 
   <button id="gear" aria-label="Grown-up settings (press and hold)">⚙️</button>
+  <div id="helpwrap" class="hide"><iframe id="helpframe" title="Sandbox guide"></iframe></div>
   <div id="settings" class="hide" role="dialog" aria-label="Grown-up settings">
     <div class="panel">
       <h2>Grown-up settings</h2>
       <button id="closeX" aria-label="Close settings">✕</button>
+      <button id="helpBtn">📖 Help &amp; guide</button>
       <div class="opt"><span>Tilt &amp; shake (motion sensors)</span>
         <div class="seg" data-key="motion"><button data-v="on">On</button><button data-v="off">Off</button></div></div>
       <div class="opt"><span>Tilt sensitivity</span>

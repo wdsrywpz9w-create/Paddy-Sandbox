@@ -102,5 +102,5 @@ function pourStep() {
 
 // stop the page itself from scrolling / zooming / long-press menus
 ['touchstart', 'touchmove', 'gesturestart', 'gesturechange'].forEach(t =>
-  document.addEventListener(t, e => { if (e.target.closest('#start, #settings')) return; e.preventDefault(); }, { passive: false }));
+  document.addEventListener(t, e => { if (e.target.closest('#start, #settings, #helpwrap')) return; e.preventDefault(); }, { passive: false }));
 document.addEventListener('contextmenu', e => e.preventDefault());
