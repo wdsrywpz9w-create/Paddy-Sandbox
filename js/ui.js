@@ -54,6 +54,20 @@ const paintCastle = g => {
   g.fillStyle = '#e53935'; g.beginPath(); g.moveTo(64, 30); g.lineTo(64, 6); g.lineTo(86, 14); g.lineTo(64, 22); g.fill();
   g.strokeStyle = '#6b4a20'; g.lineWidth = 3; g.beginPath(); g.moveTo(64, 30); g.lineTo(64, 6); g.stroke();
 };
+const paintBigCastle = g => {
+  g.fillStyle = '#3aa0f0'; g.beginPath(); g.ellipse(64, 96, 60, 24, 0, 0, Math.PI * 2); g.fill();          // the moat
+  g.fillStyle = '#d9b479'; g.fillRect(16, 58, 96, 46);                                                     // outer wall
+  for (const x of [16, 40, 64, 88]) g.fillRect(x, 50, 12, 10);
+  g.fillStyle = '#e8c58c'; g.fillRect(40, 30, 48, 52); for (const x of [40, 58, 76]) g.fillRect(x, 22, 12, 10); // keep
+  g.fillStyle = '#d9b479'; g.fillRect(8, 40, 22, 64); g.fillRect(98, 40, 22, 64);                          // corner towers
+  for (const x of [8, 22, 98, 112]) g.fillRect(x, 32, 8, 10);
+  g.fillStyle = '#8a6a3c'; g.beginPath(); g.moveTo(54, 104); g.lineTo(54, 86); g.arc(64, 86, 10, Math.PI, 0); g.lineTo(74, 104); g.fill(); // gate
+  g.fillStyle = '#b08a52'; g.fillRect(52, 104, 24, 14);                                                     // bridge
+  g.strokeStyle = '#6b4a20'; g.lineWidth = 2.5;
+  for (const [x, y, c] of [[64, 22, '#e53935'], [19, 32, '#ffd23f'], [109, 32, '#3f8cf0']]) {
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - 18); g.stroke(); g.fillStyle = c; g.beginPath(); g.moveTo(x, y - 18); g.lineTo(x + 14, y - 13); g.lineTo(x, y - 8); g.fill();
+  }
+};
 const paintTruck = g => {
   g.fillStyle = '#222'; for (const x of [30, 88]) { g.beginPath(); g.arc(x, 96, 14, 0, Math.PI * 2); g.fill(); }
   g.fillStyle = '#e8582a'; g.fillRect(12, 50, 64, 34);
@@ -100,6 +114,7 @@ function makeGroup(label, items) {
   });
   items.forEach((it, k) => {
     const sb = mkBtn(pop, it.icon(), it.label, (b, e) => {
+      if (it.action) { it.pick(main, e); setTimeout(closePopups, 150); return; } // a one-off action: doesn't become the group's tool
       cur = k; paintFace(); select(main);
       pop.querySelectorAll('.btn').forEach(x => x.classList.toggle('sel', x === b));
       it.pick(main, e);
@@ -115,6 +130,7 @@ makeGroup('Sand tools', [
   { label: 'Pour sand from the bucket', icon: () => emoji('🪣'), pick: () => { tool = 'pour'; } },
   { label: 'Castle mould: let go to make a tower', icon: () => icon(paintCastle), pick: () => { tool = 'mould'; } },
   { label: 'Shovel: scoop sand and move it', icon: () => icon(paintShovel), pick: () => { tool = 'shovel'; } },
+  { label: 'Build a big castle', icon: () => icon(paintBigCastle), action: true, pick: () => { buildBigCastle(); } },
 ]);
 makeGroup('Water', [
   { label: 'Spray water with the hose', icon: () => icon(paintHose), pick: () => { tool = 'hose'; } },

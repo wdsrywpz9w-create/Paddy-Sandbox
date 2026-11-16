@@ -11,7 +11,7 @@ The toolbar has eight big buttons. Four of them hold a **group** of tools: tappi
 | Button | Tools |
 | --- | --- |
 | ✋ Finger | Drag through the sand to dig a groove, pushing a ridge ahead. Flick fast and grains fly. |
-| **Sand tools** | 🪣 **Bucket:** hold to pour a stream of sand into a cone. **Castle mould:** carry an upside-down bucket and let go to lift off a tower with battlements, made of firm damp sand. **Shovel:** press to scoop. Hold still and the scoop grows for about 1.5 s, shown by a dashed ring and a filling progress ring. Drag and let go to tip it out. |
+| **Sand tools** | 🪣 **Bucket:** hold to pour a stream of sand into a cone. **Castle mould:** carry an upside-down bucket and let go to lift off a tower of firm damp sand. It has bucket-ridged sloping sides, six chunky battlements and crumbs around its foot. **Build a big castle:** one tap raises a whole sandcastle: a spring-fed moat, a bridge, a gatehouse, outer and inner crenellated walls with corner towers, a keep with a turret, and fluttering flags that topple if their tower is knocked down. **Shovel:** press to scoop. Hold still and the scoop grows for about 1.5 s, shown by a dashed ring and a filling progress ring. Drag and let go to tip it out. |
 | **Water** | **Hose:** sprays just past the fingertip. Holes and moats fill up, water runs downhill, carves channels and soaks in. **Rain cloud:** hold to rain on the sand around the finger. Drops dimple and wet the sand and pool in hollows. |
 | **Colours** | Red, orange, yellow, green, blue, purple, pink or rainbow dye. Rub to stain the grains. Coloured sand keeps its colour wherever it goes, and the wave washes it out. |
 | **Stamps** | 🐢 ⭐ 🐚 🐟 🦀 ❤️: drag one off its button, or touch the sand. It follows the finger and presses in on release. **Dinosaur footprints:** drag and a dinosaur walks along, left-right. |
@@ -79,6 +79,7 @@ Real sand needs about 35° of tilt to slide. The tilt-sensitivity setting makes 
 | `js/core.js` | Settings, the sand grid, sleeping tiles, and the granular physics (avalanching and momentum flow) |
 | `js/motion.js`, `js/particles.js`, `js/water.js` | Tilt and shake; airborne grains and droplets; water flow, the water table and erosion |
 | `js/dig.js`, `js/stamps.js`, `js/shovel.js`, `js/mould.js`, `js/prints.js` | Finger digging, stamps, shovel, castle mould, footprints |
+| `js/castle.js` | Tower shapes, the big castle, its spring-fed moat and flags |
 | `js/hose.js`, `js/rain.js`, `js/dye.js`, `js/truck.js`, `js/fan.js`, `js/wave.js` | The other tools |
 | `js/treasure.js` | Buried toys, finding them, and the shelf |
 | `js/render.js`, `js/sound.js`, `js/input.js`, `js/ui.js`, `js/main.js` | Drawing, sound, touch handling, toolbar and settings, the main loop |
@@ -100,7 +101,7 @@ The tests drive the real app in a headless browser and check that:
 - it loads without errors on a large and a small phone;
 - digging, shovelling, tilting and the fan neither lose nor create sand;
 - toys are found when uncovered and the shelf fills in, and the Hidden and Off settings work;
-- the castle mould builds a tower, the hose fills a hole, and the truck drives;
+- the castle mould builds a tower; the big castle has its flags, keep and full moat, and doesn't slump; the hose fills a hole; and the truck drives;
 - the tilt thresholds match the settings;
 - settings are remembered, and Done is reachable on a short screen;
 - the guide opens and closes;

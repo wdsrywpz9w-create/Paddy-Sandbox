@@ -88,6 +88,14 @@ const sound = (() => {
       rainG.gain.setTargetAtTime(rain, t, 0.15); engG.gain.setTargetAtTime(eng * 0.12, t, 0.08);
       engOsc.frequency.setTargetAtTime(44 + eng * 30, t, 0.1);
     },
+    build() { // a rumble of sand rising, then a fanfare
+      if (!a || muted) return; const t = a.currentTime;
+      const s = a.createBufferSource(); s.buffer = noise; s.loop = true;
+      const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(200, t); f.frequency.linearRampToValueAtTime(900, t + 1.5);
+      const g = a.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.4, t + 0.3); g.gain.linearRampToValueAtTime(0.0001, t + 1.6);
+      s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + 1.7);
+      setTimeout(() => this.fanfare(), 1500);
+    },
     step() {
       if (!a || muted) return; const t = a.currentTime;
       const o = a.createOscillator(), g = a.createGain();

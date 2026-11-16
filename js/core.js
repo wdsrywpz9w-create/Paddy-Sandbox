@@ -58,6 +58,7 @@ let h, c, dh, cin, outm, act, firm, wet, thr, img, img32;
 let u, v, pu, pv, qin, sh; // flow velocity, incoming momentum, shadow height
 let base, objId, sf, wat, dw, dsand; // buried-toy floor height, toy id per cell, surface, water
 let waterTotal = 0;
+let spring, springsOn = false;
 let kr, kg, kb, kir, kig, kib, dyeUsed = false;
 let windX, windY, windOn = false; // the fan's wind, as an extra downhill push on loose sand // grain colour (dye) multipliers per cell, and their inflow accumulators
 let FINGER_R = 16, STAMP_R = 60, OBJ_R = 56;
@@ -122,6 +123,7 @@ function resize() {
   qin = new Float32Array(N); sh = new Float32Array(N);
   base = new Float32Array(N); objId = new Uint8Array(N); sf = new Float32Array(N);
   wat = new Float32Array(N); dw = new Float32Array(N); dsand = new Float32Array(N); waterTotal = 0;
+  spring = new Float32Array(N); springsOn = false; // castle moats are fed by springs: the water level they refill to
   small.width = W; small.height = H;
   img = sctx.createImageData(W, H);
   img32 = new Uint32Array(img.data.buffer);

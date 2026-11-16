@@ -1,5 +1,5 @@
 // Offline cache so the sandbox works without signal once it has been opened.
-const CACHE = 'sandbox-v16';
+const CACHE = 'sandbox-v17';
 const FILES = [
   './',
   'index.html',
@@ -10,6 +10,7 @@ const FILES = [
   'icon-192.png',
   'icon-512.png',
   'css/style.css',
+  'js/castle.js',
   'js/core.js',
   'js/dig.js',
   'js/dye.js',
@@ -31,6 +32,7 @@ const FILES = [
   'js/ui.js',
   'js/water.js',
   'js/wave.js',
+  'help/bigcastle.png',
   'help/bucket.png',
   'help/castle.png',
   'help/dye.png',

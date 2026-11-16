@@ -98,6 +98,7 @@ function render(now) {
   drawWave();
   drawFinds(now);
   drawAnims(now);
+  drawFlags(now);
   drawTruck(now);
   drawFan(now);
   drawHoses();

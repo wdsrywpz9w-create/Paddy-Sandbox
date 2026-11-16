@@ -2,31 +2,7 @@
 // The castle bucket mould: carry an upside-down bucket of packed wet sand, let go, lift it off -> a tower.
 // Files share one global scope; they load in the order listed in index.html.
 
-const CASTLE = { r: 30, h: 22 };   // tower radius and height (px)
 const castleLifts = [];            // buckets being lifted off a new tower (animation)
-
-// Build a tower of firm, damp sand centred at (cx, cy) in screen px.
-function buildCastle(cx, cy) {
-  const px = cx / CELL, py = cy / CELL, R = CASTLE.r / CELL, Rout = R + 2 / CELL;
-  const ground = surfaceRef(cx, cy, CASTLE.r);
-  const Ht = CASTLE.h / CELL, notch = 5 / CELL, dip = 1.5 / CELL;
-  const x0 = Math.max(0, Math.floor(px - Rout - 1)), x1 = Math.min(W - 1, Math.ceil(px + Rout + 1));
-  const y0 = Math.max(0, Math.floor(py - Rout - 1)), y1 = Math.min(H - 1, Math.ceil(py + Rout + 1));
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    const dx = x - px, dy = y - py, d = Math.hypot(dx, dy);
-    if (d > Rout) continue;
-    let z;
-    if (d <= 0.72 * R) z = Ht - dip;                                         // the flat top inside the battlements
-    else if (d <= R) z = Math.cos(Math.atan2(dy, dx) * 8) > -0.1 ? Ht : Ht - notch; // battlements and gaps
-    else z = Ht * (1 - (d - R) / (Rout - R)) * 0.9;                           // the bucket's slightly flared rim
-    const i = y * W + x, surf = h[i] + base[i], top = ground + z;
-    if (top > surf) mixInto(i, top - surf, 0.92 + Math.random() * 0.1, kr[i], kg[i], kb[i]);
-    firm[i] = 1; if (wet[i] < 0.85) wet[i] = 0.85; // packed damp sand holds its walls until disturbed
-    act[i] = 0; u[i] = 0; v[i] = 0;
-  }
-  wetActive = true;
-  wakeCells(x0, y0, x1, y1);
-}
 
 function drawBucket(x, y, scale, alpha, lift) {
   const R = (CASTLE.r + 6) * scale;

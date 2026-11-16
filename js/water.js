@@ -6,7 +6,7 @@
 // Its surface stays level with real gravity, so tilting sloshes moats to the low side.
 const TIDE = { low: 7, high: 3 }; // px below the level of a freshly smoothed tray
 function waterTable(tx, ty) {
-  const below = TIDE[settings.tide]; if (!below) return;
+  const below = TIDE[settings.tide]; if (!below && !springsOn) return;
   // the sand's tilt is exaggerated for little hands; the water table tips more gently and at most ~8px
   const L0 = (bury().bed - below) / CELL, twx = tx / P.tiltGain * 0.06, twy = ty / P.tiltGain * 0.06, cx = W / 2, cy = H / 2;
   const cap = 4 / CELL;
@@ -15,7 +15,8 @@ function waterTable(tx, ty) {
   for (let y = 0; y < H; y++) {
     for (let x = 0, i = y * W; x < W; x++, i++) {
       let off = twx * (x - cx) + twy * (y - cy); off = off > cap ? cap : off < -cap ? -cap : off;
-      const depth = L0 + off - h_[i] - b_[i]; // how far this spot is under the water table
+      let depth = below ? L0 + off - h_[i] - b_[i] : -1; // how far this spot is under the water table
+      const sp = spring[i]; if (sp > 0) { const ds = sp - h_[i] - b_[i]; if (ds > depth) depth = ds; } // a moat's spring
       let wv = w_[i];
       if (depth > 0) {
         if (wv < depth) { const add = depth - wv; wv += add < 0.06 ? add : 0.06; }        // seeps in

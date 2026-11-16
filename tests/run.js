@@ -119,7 +119,26 @@ async function drag(page, box, pts, pause = 14) {
       await page.mouse.move(box.x + 60, box.y + 300); await page.mouse.down(); await page.waitForTimeout(1500); await page.mouse.up();
       const t1 = await page.evaluate(() => [truck.x, truck.y]);
       check('the truck drives towards the finger', Math.hypot(t1[0] - t0[0], t1[1] - t0[1]) > 40);
-      check('no errors with mould, hose and truck', errors.length === 0, errors.join('; '));
+      // the big castle: rises, has flags, a full moat, and a keep that stands up
+      await chooseTool(page, 'Sand tools', 'Build a big castle'); await page.waitForTimeout(2600);
+      const castle = await page.evaluate(() => {
+        const at = (x, y) => { const i = ((y / CELL) | 0) * W + ((x / CELL) | 0); return [(h[i] + base[i]) * CELL, wat[i] * CELL]; };
+        const s = Math.max(0.55, Math.min(1.3, Math.min(cssW - 12, cssH - 12) / 312));
+        const ground = at(cssW / 2, cssH / 2 + 156 * s + 10)[0];
+        return { flags: castleFlags.length, keep: at(cssW / 2 - 10 * s, cssH / 2 - 10 * s)[0] - ground,
+                 moat: at(cssW / 2 + 140 * s, cssH / 2)[1], tool };
+      });
+      check('the big castle has 11 flags, a tall keep and a full moat', castle.flags === 11 && castle.keep > 25 * 0.8 && castle.moat > 3,
+        `flags ${castle.flags}, keep +${castle.keep.toFixed(0)}px, moat ${castle.moat.toFixed(1)}px deep`);
+      await page.waitForTimeout(2500);
+      const kept = await page.evaluate(() => {
+        const s = Math.max(0.55, Math.min(1.3, Math.min(cssW - 12, cssH - 12) / 312));
+        const at = (x, y) => { const i = ((y / CELL) | 0) * W + ((x / CELL) | 0); return (h[i] + base[i]) * CELL; };
+        return at(cssW / 2 - 10 * s, cssH / 2 - 10 * s) - at(cssW / 2, cssH / 2 + 156 * s + 10);
+      });
+      check('the keep still stands 2.5 s after building (no slumping)', Math.abs(kept - castle.keep) < 3, `${castle.keep.toFixed(1)} -> ${kept.toFixed(1)}px`);
+      check('building a castle keeps the chosen tool', castle.tool === 'shovel' || castle.tool === 'hose' || castle.tool === 'truck' || castle.tool === 'mould', castle.tool);
+      check('no errors with mould, hose, truck and castle', errors.length === 0, errors.join('; '));
       await ctx.close();
     }
 

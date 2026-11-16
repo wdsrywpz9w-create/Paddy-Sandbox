@@ -25,6 +25,8 @@ function frame(now) {
   sound.extras(raining ? 0.16 : 0, Math.min(1, driving / 4));
   const dyeing = dyeStep(now);
   growShovels(now);
+  stepBuilds(now);
+  checkFlags(now);
   const fanning = fanStep(now);
   sound.fanLevel(fanning * 0.3);
   const dumping = dumpStep();
