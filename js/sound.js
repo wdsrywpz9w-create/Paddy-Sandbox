@@ -96,6 +96,22 @@ const sound = (() => {
       s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + 1.7);
       setTimeout(() => this.fanfare(), 1500);
     },
+    grumble(anger) { // a little "hmph!", lower and longer the crosser they are
+      if (!a || muted) return; const t = a.currentTime;
+      for (let k = 0; k < 1 + Math.round(anger * 2); k++) {
+        const o = a.createOscillator(), g = a.createGain(), st = t + k * 0.16;
+        o.type = 'square'; o.frequency.setValueAtTime(520 - anger * 200, st); o.frequency.exponentialRampToValueAtTime(260 - anger * 90, st + 0.12);
+        g.gain.setValueAtTime(0.0001, st); g.gain.exponentialRampToValueAtTime(0.05, st + 0.02); g.gain.exponentialRampToValueAtTime(0.001, st + 0.14);
+        o.connect(g); g.connect(master); o.start(st); o.stop(st + 0.16);
+      }
+    },
+    tap() { // a tiny pat of a spade
+      if (!a || muted) return; const t = a.currentTime;
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = 'triangle'; o.frequency.setValueAtTime(900, t); o.frequency.exponentialRampToValueAtTime(400, t + 0.04);
+      g.gain.setValueAtTime(0.04, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.06);
+    },
     step() {
       if (!a || muted) return; const t = a.currentTime;
       const o = a.createOscillator(), g = a.createGain();

@@ -65,13 +65,15 @@ function stepBuilds(now) {
 const CASTLE = { r: 30, h: 24, merlons: 6, notch: 6 };
 function buildCastle(cx, cy) {
   const R = CASTLE.r, reach = R + R * 0.18 + 7;
-  startBuild(planCells(cx, cy, reach, (dx, dy, gx, gy) => {
+  const plan = planCells(cx, cy, reach, (dx, dy, gx, gy) => {
     const d = Math.hypot(dx, dy), z = towerZ(d, Math.atan2(dy, dx), R, CASTLE.h, CASTLE.merlons, CASTLE.notch);
     if (z !== null) return { z, kind: 1 };
     const hsh = hash2(gx, gy);                                   // crumbs of loose sand around the base
     if (d < reach && hsh > 0.55) return { z: 0.4 + (hsh - 0.55) * 3 * (1 - (d - R * 1.18) / 7), kind: 2 };
     return null;
-  }), 0);
+  });
+  startBuild(plan, 0);
+  rememberTower(plan); // if there are castle keepers, they look after this tower too
 }
 
 // ---------- the big castle ----------
@@ -140,6 +142,10 @@ function buildBigCastle() {
   // toothpick flags on the towers
   const cols = ['#e53935', '#ffd23f', '#3f8cf0', '#4cc95a', '#ff6fb5'];
   castleFlags = L.towers.map((t, k) => ({ x: cx + t.x, y: cy + t.y, top: t.H, col: cols[k % cols.length], born: performance.now() + 1500, fell: 0 }));
+  // the keepers remember the finished castle (and where each flag's tower top should be)
+  const want = new Map(); for (let k = 0; k < plan.cells.length; k++) want.set(plan.cells[k], plan.to[k]);
+  const specs = castleFlags.map(f => { const i = ((f.y / CELL) | 0) * W + ((f.x / CELL) | 0); return { x: f.x, y: f.y, col: f.col, top: ((want.get(i) || 0) + base[i]) * CELL }; });
+  rememberCastle(plan, specs, cx, cy, s);
   sound.build();
 }
 

@@ -27,6 +27,7 @@ function frame(now) {
   growShovels(now);
   stepBuilds(now);
   checkFlags(now);
+  keepersStep(now);
   const fanning = fanStep(now);
   sound.fanLevel(fanning * 0.3);
   const dumping = dumpStep();

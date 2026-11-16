@@ -17,7 +17,7 @@ const small = document.createElement('canvas');
 const sctx = small.getContext('2d');
 
 // ---------- grown-up settings (remembered on this device) ----------
-const settings = { motion: 'on', sens: 'low', bury: 'medium', sound: 'on', tide: 'off', bg: 'rocky', sun: 'medium' };
+const settings = { motion: 'on', sens: 'low', bury: 'medium', sound: 'on', tide: 'off', bg: 'rocky', sun: 'medium', keepers: 'on' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('sandbox-settings') || '{}')); } catch (e) {}
 function saveSettings() { try { localStorage.setItem('sandbox-settings', JSON.stringify(settings)); } catch (e) {} }
 // sand bed thickness and the sand left over each toy, in screen px

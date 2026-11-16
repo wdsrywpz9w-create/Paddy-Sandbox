@@ -29,7 +29,7 @@ function stepWave() {
   wetActive = true;
   if (t > dur + 600) {
     placeObjects(); // new dinosaurs to find!
-    spring.fill(0); springsOn = false; castleFlags = []; builds.length = 0; // the sea takes the castle
+    spring.fill(0); springsOn = false; castleFlags = []; builds.length = 0; forgetCastle(); // the sea takes the castle
     for (let i = 0; i < N; i++) { firm[i] = 0; h[i] = coverOver(i, m - base[i]); wat[i] = 0; kr[i] = kg[i] = kb[i] = 1; }
     dyeUsed = false;
     waterTotal = 0;

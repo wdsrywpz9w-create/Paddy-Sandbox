@@ -32,7 +32,7 @@ function waterTable(tx, ty) {
 // ---------- water: shallow flow over the sand, erosion, soaking in ----------
 function waterStep(tx, ty) {
   if (waterTotal <= 0.001) { waterTotal = 0; return; }
-  const w_ = wat, d_ = dw, s_ = dsand, h_ = h, b_ = base, n = N, w = W, hgt = H;
+  const w_ = wat, d_ = dw, s_ = dsand, h_ = h, b_ = base, n = N, w = W, hgt = H, sp_ = spring;
   d_.fill(0); s_.fill(0);
   // water feels the phone's real tilt (the sand's is exaggerated for little hands)
   const KW = 0.2, KE = 0.07, twx = tx / P.tiltGain * 0.5, twy = ty / P.tiltGain * 0.5;
@@ -40,12 +40,12 @@ function waterStep(tx, ty) {
     if (dd > 0) {
       let q = dd * KW; const cap = w_[i] * 0.24; if (q > cap) q = cap; if (q < 1e-5) return;
       d_[i] -= q; d_[j] += q;
-      let e = q * KE * (dd < 1.5 ? dd : 1.5); const ca = h_[i] * 0.04; if (e > ca) e = ca;
+      let e = sp_[i] > 0 || sp_[j] > 0 ? 0 : q * KE * (dd < 1.5 ? dd : 1.5); const ca = h_[i] * 0.04; if (e > ca) e = ca; // a spring-fed moat lies still: no scouring
       if (e > 1e-5) { s_[i] -= e; s_[j] += e; }
     } else if (dd < 0) {
       let q = -dd * KW; const cap = w_[j] * 0.24; if (q > cap) q = cap; if (q < 1e-5) return;
       d_[j] -= q; d_[i] += q;
-      let e = q * KE * (-dd < 1.5 ? -dd : 1.5); const ca = h_[j] * 0.04; if (e > ca) e = ca;
+      let e = sp_[i] > 0 || sp_[j] > 0 ? 0 : q * KE * (-dd < 1.5 ? -dd : 1.5); const ca = h_[j] * 0.04; if (e > ca) e = ca;
       if (e > 1e-5) { s_[j] -= e; s_[i] += e; }
     }
   };

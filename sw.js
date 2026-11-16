@@ -1,5 +1,5 @@
 // Offline cache so the sandbox works without signal once it has been opened.
-const CACHE = 'sandbox-v17';
+const CACHE = 'sandbox-v18';
 const FILES = [
   './',
   'index.html',
@@ -17,6 +17,7 @@ const FILES = [
   'js/fan.js',
   'js/hose.js',
   'js/input.js',
+  'js/keepers.js',
   'js/main.js',
   'js/motion.js',
   'js/mould.js',

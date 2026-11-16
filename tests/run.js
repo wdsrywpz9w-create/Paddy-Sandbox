@@ -137,6 +137,17 @@ async function drag(page, box, pts, pause = 14) {
         return at(cssW / 2 - 10 * s, cssH / 2 - 10 * s) - at(cssW / 2, cssH / 2 + 156 * s + 10);
       });
       check('the keep still stands 2.5 s after building (no slumping)', Math.abs(kept - castle.keep) < 3, `${castle.keep.toFixed(1)} -> ${kept.toFixed(1)}px`);
+      // castle keepers: four of them, they rebuild a knocked-down tower, and get crosser
+      const nk = await page.evaluate(() => keepers.length);
+      await chooseTool(page, 'Dig with your finger');
+      const tw = await page.evaluate(() => [castleBP.flags[0].x, castleBP.flags[0].y]);
+      for (let k = 0; k < 3; k++) await drag(page, box, Array.from({ length: 12 }, (_, j) => [tw[0] - 28 + j * 5, tw[1] + (k - 1) * 8]), 12);
+      await page.waitForTimeout(700);
+      const [hurt, cross] = await page.evaluate(() => [lastDeficit, keeperAnger]);
+      await page.waitForTimeout(9000);
+      const healed = await page.evaluate(() => lastDeficit);
+      check('4 castle keepers rebuild a knocked-down tower', nk === 4 && healed < hurt * 0.6, `${nk} keepers, damage ${hurt | 0} -> ${healed | 0}`);
+      check('the keepers get cross when the castle is knocked down', cross > 0.1, cross.toFixed(2));
       check('building a castle keeps the chosen tool', castle.tool === 'shovel' || castle.tool === 'hose' || castle.tool === 'truck' || castle.tool === 'mould', castle.tool);
       check('no errors with mould, hose, truck and castle', errors.length === 0, errors.join('; '));
       await ctx.close();
@@ -170,6 +181,9 @@ async function drag(page, box, pts, pause = 14) {
       await page.reload();
       const saved = await page.evaluate(() => [settings.tide, settings.sens, settings.sun]);
       check('settings are remembered after reload', saved.join() === 'high,medium,low', saved.join());
+      await page.evaluate(() => { settings.keepers = 'off'; buildBigCastle(); });
+      await page.waitForTimeout(2200);
+      check('keepers can be switched off', await page.evaluate(() => keepers.length === 0));
       await ctx.close();
     }
 

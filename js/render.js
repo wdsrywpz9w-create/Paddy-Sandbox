@@ -100,6 +100,7 @@ function render(now) {
   drawAnims(now);
   drawFlags(now);
   drawTruck(now);
+  drawKeepers(now);
   drawFan(now);
   drawHoses();
   drawScoopRings(now);
