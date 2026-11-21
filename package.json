@@ -4,9 +4,16 @@
   "description": "A phone-browser sandbox for toddlers with realistic sand physics.",
   "scripts": {
     "test": "node tests/run.js",
-    "serve": "python3 -m http.server 8000"
+    "serve": "python3 -m http.server 8000",
+    "build:web": "node scripts/build-web.js",
+    "ios:sync": "npm run build:web && npx cap sync ios"
   },
   "devDependencies": {
-    "playwright": "1.63.0"
+    "playwright": "1.63.0",
+    "@capacitor/cli": "8.6.2"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.6.2",
+    "@capacitor/ios": "8.6.2"
   }
 }

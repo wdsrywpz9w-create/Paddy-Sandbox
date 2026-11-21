@@ -1,0 +1,49 @@
+# Builds an unsigned iPhone app (.ipa) on a GitHub-hosted Mac, ready for Sideloadly to sign and install.
+# Download it from the run's "Artifacts" section (Actions tab -> latest run -> PaddysSandbox-ipa).
+name: Build iPhone app (.ipa)
+
+on:
+  push:
+    branches: [main, claude/fervent-edison-mypv69]
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Capacitor
+        run: npm ci
+
+      - name: Copy the sandbox into the iOS project
+        run: npm run ios:sync
+
+      - name: Build the app (unsigned: Sideloadly signs it with your Apple ID)
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package the .ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qry PaddysSandbox.ipa Payload
+          ls -lh PaddysSandbox.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PaddysSandbox-ipa
+          path: PaddysSandbox.ipa
+          retention-days: 30

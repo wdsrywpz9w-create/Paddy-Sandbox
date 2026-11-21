@@ -1,0 +1,13 @@
+{
+  "appId": "com.paddysandbox.app",
+  "appName": "Paddy's Sandbox",
+  "webDir": "www",
+  "backgroundColor": "#3a342f",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "allowsLinkPreview": false,
+    "backgroundColor": "#3a342f",
+    "preferredContentMode": "mobile"
+  }
+}
