@@ -9,5 +9,10 @@
     "allowsLinkPreview": false,
     "backgroundColor": "#3a342f",
     "preferredContentMode": "mobile"
+  },
+  "plugins": {
+    "SystemBars": {
+      "hidden": true
+    }
   }
 }

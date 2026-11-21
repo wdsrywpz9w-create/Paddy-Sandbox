@@ -23,10 +23,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 }
 
-/// The sandbox's screen: no status bar, the home bar fades away, and swipes at the screen edges
-/// need a second swipe to leave the app, so little fingers stay in the sand.
+/// The sandbox's screen. Swipes at the screen edges need a second swipe to leave the app, so
+/// little fingers stay in the sand. (The status bar and home bar are hidden by Capacitor's
+/// SystemBars setting in capacitor.config.json.)
 class SandboxViewController: CAPBridgeViewController {
-    override var prefersStatusBarHidden: Bool { true }
-    override var prefersHomeIndicatorAutoHidden: Bool { true }
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .all }
 }
