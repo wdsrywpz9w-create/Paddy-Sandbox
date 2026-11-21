@@ -28,7 +28,7 @@ jobs:
       - name: Copy the sandbox into the iOS project
         run: npm run ios:sync
 
-      - name: Build the app (unsigned: Sideloadly signs it with your Apple ID)
+      - name: Build the app, unsigned (Sideloadly signs it with your Apple ID)
         run: |
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
